@@ -1769,6 +1769,12 @@ if not st.session_state.blocks:
         unsafe_allow_html=True,
     )
 
+def _move_block(i, direction):
+    lst = st.session_state.blocks
+    j = i + direction
+    if 0 <= j < len(lst):
+        lst[i], lst[j] = lst[j], lst[i]
+
 to_delete = set()
 
 for i, block in enumerate(st.session_state.blocks):
@@ -1785,15 +1791,12 @@ for i, block in enumerate(st.session_state.blocks):
 
         st.markdown("")
         bc1, bc2, bc3, _ = st.columns([1, 1, 1, 5])
-        if bc1.button("Up", key=f"up_{block['id']}", help="Move up") and i > 0:
-            lst = st.session_state.blocks
-            lst[i], lst[i-1] = lst[i-1], lst[i]
-            st.rerun()
-        if bc2.button("Down", key=f"dn_{block['id']}", help="Move down") \
-                and i < len(st.session_state.blocks) - 1:
-            lst = st.session_state.blocks
-            lst[i], lst[i+1] = lst[i+1], lst[i]
-            st.rerun()
+        bc1.button("Up",   key=f"up_{block['id']}", help="Move up",
+                   on_click=_move_block, args=(i, -1),
+                   disabled=(i == 0))
+        bc2.button("Down", key=f"dn_{block['id']}", help="Move down",
+                   on_click=_move_block, args=(i, 1),
+                   disabled=(i == len(st.session_state.blocks) - 1))
         if bc3.button("Delete", key=f"del_{block['id']}"):
             to_delete.add(block["id"])
 
@@ -1831,4 +1834,5 @@ if add_pressed:
         st.rerun()
     else:
         st.warning("Please select a block type (not a separator).")
+
 
