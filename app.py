@@ -3,7 +3,7 @@ app.py â€” OMKREDS Structural Report Generator
 Local Streamlit web app.  Run with:  streamlit run app.py
 """
 
-import sys, math, io, os, tempfile
+import sys, math, io, os, tempfile, json
 from datetime import date
 from pathlib import Path
 
@@ -178,6 +178,48 @@ if "blocks" not in st.session_state:
     st.session_state.blocks = []
 if "_id" not in st.session_state:
     st.session_state._id = 0
+
+# ── project-save / load helpers ───────────────────────────────────────────────
+
+_PROJ_KEYS = [
+    "proj_firm", "proj_project", "proj_title", "proj_section",
+    "proj_ref",  "proj_rev",     "proj_std",
+    "proj_eng",  "proj_chk",     "proj_apr",
+    "proj_date", "proj_chk_date","proj_apr_date",
+    "proj_address","proj_phone", "proj_cvr",  "proj_email",
+]
+
+def _project_to_json() -> bytes:
+    """Serialise current blocks + project metadata to UTF-8 JSON bytes."""
+    proj_snap = {k: st.session_state.get(k, "") for k in _PROJ_KEYS}
+    payload = {
+        "version":  2,
+        "project":  proj_snap,
+        "blocks":   st.session_state.blocks,
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+
+def _apply_loaded_project(data: dict):
+    """Write loaded JSON data into session_state (called before rerun)."""
+    proj = data.get("project", {})
+    for k in _PROJ_KEYS:
+        if k in proj:
+            st.session_state[k] = proj[k]
+    raw_blocks = data.get("blocks", [])
+    # Re-assign unique IDs to avoid collisions with current session
+    new_blocks = []
+    for b in raw_blocks:
+        b = dict(b)
+        st.session_state._id += 1
+        b["id"] = st.session_state._id
+        new_blocks.append(b)
+    st.session_state.blocks = new_blocks
+
+# Handle a pending load triggered in a previous run
+if "_pending_load" in st.session_state:
+    _apply_loaded_project(st.session_state.pop("_pending_load"))
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _new_id():
     st.session_state._id += 1
@@ -1826,6 +1868,42 @@ with st.sidebar:
     logo_path = BASE_DIR / "Billede2.png"
     if logo_path.exists():
         st.image(str(logo_path), width=140)
+
+    # ── Save / Load ───────────────────────────────────────────────────────────
+    st.markdown("## Save / Load")
+
+    # Save — always available
+    _proj_name = st.session_state.get("proj_ref", "report")
+    _save_name = f"{_proj_name}.json".replace("/", "-").replace(" ", "_")
+    st.download_button(
+        label            = "💾  Save project",
+        data             = _project_to_json(),
+        file_name        = _save_name,
+        mime             = "application/json",
+        use_container_width = True,
+        help             = "Download the full report (blocks + metadata) as a JSON file. "
+                           "Load it back later to continue editing.",
+    )
+
+    # Load
+    _uploaded = st.file_uploader(
+        "📂  Load project  (.json)",
+        type             = ["json"],
+        key              = "_load_uploader",
+        label_visibility = "collapsed",
+        help             = "Upload a previously saved .json report file.",
+    )
+    if _uploaded is not None:
+        try:
+            _data = json.loads(_uploaded.read().decode("utf-8"))
+            if not isinstance(_data.get("blocks"), list):
+                raise ValueError("Invalid project file — missing 'blocks' list.")
+            st.session_state["_pending_load"] = _data
+            st.rerun()
+        except Exception as _e:
+            st.error(f"Could not load file: {_e}")
+
+    st.markdown("---")
     st.markdown("## Project")
 
     proj_firm     = st.text_input("Firm",        "Your Firm",       key="proj_firm")
