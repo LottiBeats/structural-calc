@@ -1,5 +1,5 @@
-"""
-app.py — OMKREDS Structural Report Generator
+﻿"""
+app.py â€” OMKREDS Structural Report Generator
 Local Streamlit web app.  Run with:  streamlit run app.py
 """
 
@@ -17,7 +17,7 @@ import streamlit as st
 BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
-# ── units ─────────────────────────────────────────────────────────────────────
+# â”€â”€ units â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import forallpeople as si
 si.environment("structural", top_level=True)
 
@@ -31,7 +31,7 @@ _UNIT_NS.update({
     "abs": abs, "min": min, "max": max, "round": round,
 })
 
-# ── calc modules ──────────────────────────────────────────────────────────────
+# â”€â”€ calc modules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 from calc_core import (COVER, TOC, PAGEBREAK, H1, T, N as NOTE, FIG,
                        CheckContext, S, CALC_ROW)
 from holst_layout import generate_pdf_holst
@@ -42,9 +42,9 @@ from steel import steel_beam_ipe
 from concrete import rc_beam_bending
 from masonry import masonry_wall_vertical
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # CONSTANTS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 TIMBER_GRADES = [
     "C14","C16","C18","C20","C22","C24","C27","C30","C35","C40","C45","C50",
@@ -66,39 +66,39 @@ UNIT_CHOICES = [
     "kg","kN/m**3",
 ]
 UNIT_LABELS = {
-    "-":"—","m":"m","mm":"mm","cm":"cm",
+    "-":"â€”","m":"m","mm":"mm","cm":"cm",
     "kN":"kN","N":"N","MN":"MN",
-    "kN/m":"kN/m","N/m":"N/m","kN/m**2":"kN/m²",
+    "kN/m":"kN/m","N/m":"N/m","kN/m**2":"kN/mÂ²",
     "MPa":"MPa","GPa":"GPa","kPa":"kPa",
-    "kN*m":"kN·m","N*m":"N·m",
-    "mm**2":"mm²","cm**2":"cm²","m**2":"m²",
-    "mm**3":"mm³","cm**3":"cm³",
-    "mm**4":"mm⁴","cm**4":"cm⁴",
-    "kg":"kg","kN/m**3":"kN/m³",
+    "kN*m":"kNÂ·m","N*m":"NÂ·m",
+    "mm**2":"mmÂ²","cm**2":"cmÂ²","m**2":"mÂ²",
+    "mm**3":"mmÂ³","cm**3":"cmÂ³",
+    "mm**4":"mmâ´","cm**4":"cmâ´",
+    "kg":"kg","kN/m**3":"kN/mÂ³",
 }
 
 BLOCK_MENU = {
-    "— Analysis —": None,
+    "â€” Analysis â€”": None,
     "FEM beam analysis": "fem_beam",
-    "— Eurocode checks —": None,
+    "â€” Eurocode checks â€”": None,
     "Timber beam-column  (EN 1995)": "timber_beam_column",
     "Timber beam  (EN 1995)": "timber_beam",
     "Steel beam IPE / HEA / HEB / L  (EN 1993)": "steel_beam",
     "Concrete beam  (EN 1992)": "concrete_beam",
     "Masonry wall  (EN 1996)": "masonry_wall",
-    "— Content —": None,
+    "â€” Content â€”": None,
     "Custom calculation": "custom_calc",
     "Section heading": "heading",
     "Paragraph text": "text",
     "Note / warning": "note",
     "Figure / image": "figure",
-    "— Layout —": None,
+    "â€” Layout â€”": None,
     "Page break": "pagebreak",
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # PAGE CONFIG & STYLING
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 st.set_page_config(
     page_title="Structural Report Generator",
@@ -124,7 +124,7 @@ st.markdown("""
 }
 [data-testid="stSidebar"] { border-right: 1px solid #e8e8e8; }
 
-/* Block expanders — clean top border, no radius */
+/* Block expanders â€” clean top border, no radius */
 div[data-testid="stExpander"] {
     border: 1px solid #e8e8e8 !important;
     border-top: 2px solid #111 !important;
@@ -136,7 +136,7 @@ div[data-testid="stExpander"] summary {
     letter-spacing: 0.06em !important; text-transform: uppercase !important;
 }
 
-/* Primary button — solid black */
+/* Primary button â€” solid black */
 div[data-testid="stButton"] > button[kind="primary"] {
     background: #111 !important; color: #fff !important;
     border: none !important; border-radius: 2px !important;
@@ -145,7 +145,7 @@ div[data-testid="stButton"] > button[kind="primary"] {
 }
 div[data-testid="stButton"] > button[kind="primary"]:hover { background: #333 !important; }
 
-/* Secondary buttons — outline */
+/* Secondary buttons â€” outline */
 div[data-testid="stButton"] > button:not([kind="primary"]) {
     border-radius: 2px !important; font-size: 11px !important;
     letter-spacing: 0.04em !important;
@@ -159,7 +159,7 @@ div[data-testid="stDownloadButton"] > button {
     letter-spacing: 0.06em !important; font-size: 11px !important;
 }
 
-/* Input fields — square corners */
+/* Input fields â€” square corners */
 input, textarea { border-radius: 2px !important; }
 
 /* Remove radio label uppercase that was set globally */
@@ -167,9 +167,9 @@ div[data-testid="stRadio"] label { font-size: 13px !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # SESSION STATE
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 if "blocks" not in st.session_state:
     st.session_state.blocks = []
@@ -268,16 +268,16 @@ def _default_block(btype):
         base["caption"] = ""
     return base
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # FEM HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _run_fem(data: dict):
     """Build, load, and solve a BeamFEM from a fem_beam data dict.
     Returns (summary_dict, beam_object) or raises on error."""
     span   = float(data["span_m"])
     E      = float(data["E_mpa"]) * 1e6       # Pa
-    I      = float(data["I_cm4"]) * 1e-8      # m⁴  (cm⁴ → m⁴)
+    I      = float(data["I_cm4"]) * 1e-8      # mâ´  (cmâ´ â†’ mâ´)
     n_el   = max(20, int(data.get("n_elements", 100)))
 
     beam = BeamFEM(length=span, E=E, I=I, n_elements=n_el)
@@ -315,7 +315,7 @@ def _run_fem(data: dict):
 
 
 def _fem_plot_bytes(beam: BeamFEM, title: str = "") -> bytes:
-    """Render FEM results as a 4-panel PNG (beam layout + δ + M + V) and return bytes."""
+    """Render FEM results as a 4-panel PNG (beam layout + Î´ + M + V) and return bytes."""
     import matplotlib.gridspec as gridspec
     x      = beam.x_fine
     v_mm   = beam.v_fine * 1e3
@@ -339,7 +339,7 @@ def _fem_plot_bytes(beam: BeamFEM, title: str = "") -> bytes:
 
     panels = [
         (ax1, v_mm,  "Displacement  [mm]",     "#2d6a9f"),
-        (ax2, M_kNm, "Bending moment  [kN·m]", "#b03030"),
+        (ax2, M_kNm, "Bending moment  [kNÂ·m]", "#b03030"),
         (ax3, V_kN,  "Shear force  [kN]",      "#2a7a4b"),
     ]
     for ax, ydata, ylabel, col in panels:
@@ -379,7 +379,7 @@ def _beam_layout_preview_bytes(data: dict) -> bytes:
     E    = float(data.get("E_mpa", 210000.0)) * 1e6
     I    = float(data.get("I_cm4", 8356.0))   * 1e-8
 
-    # Minimal element count — we only need the diagram, not solved results
+    # Minimal element count â€” we only need the diagram, not solved results
     preview = BeamFEM(length=span, E=E, I=I, n_elements=20)
 
     for sup in data.get("supports", []):
@@ -435,9 +435,9 @@ def _fem_labels_in_session() -> list[str]:
     ]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # UNIT HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def parse_qty(value: float, unit_str: str):
     """Convert a plain float + unit string to a forallpeople quantity."""
@@ -458,9 +458,9 @@ def fmt_qty(qty) -> str:
         except Exception:
             return str(qty)
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # CUSTOM CALC EVALUATOR
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def evaluate_custom_calc(var_rows, formula_rows):
     """
@@ -471,11 +471,11 @@ def evaluate_custom_calc(var_rows, formula_rows):
         ns           : dict of computed quantities (for checks)
         errors       : list of error strings
     """
-    ns      = {}   # local namespace — grows as vars and formulas are evaluated
+    ns      = {}   # local namespace â€” grows as vars and formulas are evaluated
     display = []
     errors  = []
 
-    # ── variables ─────────────────────────────────────────────────────────────
+    # â”€â”€ variables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for row in var_rows:
         name = row.get("name", "").strip()
         if not name:
@@ -489,7 +489,7 @@ def evaluate_custom_calc(var_rows, formula_rows):
         except Exception as exc:
             errors.append(f"Variable '{name}': {exc}")
 
-    # ── formulas ──────────────────────────────────────────────────────────────
+    # â”€â”€ formulas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for raw in formula_rows:
         raw = raw.strip()
         if not raw or "=" not in raw:
@@ -504,7 +504,7 @@ def evaluate_custom_calc(var_rows, formula_rows):
             # Clean formula string for display (keep it readable)
             formula_disp = (rhs
                 .replace("**", "^")
-                .replace("*", " × ")
+                .replace("*", " Ã— ")
                 .replace("/", " / ")
                 .replace("  ", " ")
             )
@@ -551,9 +551,9 @@ def custom_calc_to_blocks(data: dict) -> list:
     return blocks
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# BLOCK → REPORT CONVERTER
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# BLOCK â†’ REPORT CONVERTER
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def block_to_report(block: dict, fem_results: dict = None) -> list:
     """Convert one session block to a list of report blocks.
@@ -582,7 +582,7 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
 
     elif t == "fem_beam":
         d = block["data"]
-        blocks_out = [S(f"FEM analysis — {d.get('label','')}")]
+        blocks_out = [S(f"FEM analysis â€” {d.get('label','')}")]
         try:
             summary, beam = _run_fem(d)
             # Save diagram to temp file for FIG block
@@ -597,11 +597,11 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
             blocks_out += [
                 T(f"Simply-supported beam FEM analysis. "
                   f"Span {d['span_m']} m, "
-                  f"EI = {d['E_mpa']*d['I_cm4']*1e-2:.0f} kN·m²."),
-                CALC_ROW("M_Ed", "", f"{M_kNm:.3f} kN·m"),
+                  f"EI = {d['E_mpa']*d['I_cm4']*1e-2:.0f} kNÂ·mÂ²."),
+                CALC_ROW("M_Ed", "", f"{M_kNm:.3f} kNÂ·m"),
                 CALC_ROW("V_Ed", "", f"{V_kN:.3f} kN"),
                 CALC_ROW("delta_max", "", f"{d_mm:.3f} mm"),
-                FIG(tmp_path, caption=f"FEM results — {d.get('label','')}"),
+                FIG(tmp_path, caption=f"FEM results â€” {d.get('label','')}"),
             ]
         except Exception as exc:
             blocks_out.append(NOTE(f"FEM error: {exc}"))
@@ -641,7 +641,7 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
                 return [NOTE(f"FEM block '{lbl}' not found or not solved.")]
             beam_results = {
                 "source": "beam_fem",
-                "case_name": f"FEM — {lbl}",
+                "case_name": f"FEM â€” {lbl}",
                 "M_Ed":      res["M_Ed_Nm"]      * N * m,
                 "V_Ed":      res["V_Ed_N"]        * N,
                 "delta_max": res["delta_max_m"]   * m,
@@ -684,12 +684,12 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
             return [NOTE(f"Steel section '{d['section']}' not found in catalog.")]
         sec  = db[key]
 
-        # Section properties come from catalog — not user-editable
-        W_ply = sec["Wply_cm3"] * mm**3 * 1e3   # cm³ → mm³ → Physical (mm³)
+        # Section properties come from catalog â€” not user-editable
+        W_ply = sec["Wply_cm3"] * mm**3 * 1e3   # cmÂ³ â†’ mmÂ³ â†’ Physical (mmÂ³)
         h     = sec["h_mm"]     * mm
         t_w   = sec["tw_mm"]    * mm
 
-        # Steel grade → f_y
+        # Steel grade â†’ f_y
         GRADE_FY = {"S235": 235, "S275": 275, "S355": 355, "S420": 420, "S460": 460}
         grade     = d.get("grade", "S355")
         f_y_mpa   = GRADE_FY.get(grade, 355)
@@ -704,7 +704,7 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
                 return [NOTE(f"FEM block '{lbl}' not found or not solved.")]
             beam_results = {
                 "source": "beam_fem",
-                "case_name": f"FEM — {lbl}",
+                "case_name": f"FEM â€” {lbl}",
                 "M_Ed":      res["M_Ed_Nm"]    * N * m,
                 "V_Ed":      res["V_Ed_N"]      * N,
                 "delta_max": res["delta_max_m"] * m,
@@ -730,7 +730,7 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
         _b_qty    = sec["b_mm"]  * mm if _family in ("IPE", "HEA", "HEB") else None
         _tf_qty   = sec["tf_mm"] * mm if _family in ("IPE", "HEA", "HEB") else None
 
-        # Effective LTB length — only when LTB is not suppressed
+        # Effective LTB length â€” only when LTB is not suppressed
         _ltb_restrained = bool(d.get("ltb_restrained", False))
         _lcr_raw = d.get("l_cr_ltb_m")
         _l_cr_ltb = (
@@ -809,12 +809,12 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
     return []
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # PDF GENERATION
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def build_and_generate_pdf(project: dict, blocks: list) -> bytes:
-    # ── Pre-solve all FEM blocks so results are available to linked checks ──
+    # â”€â”€ Pre-solve all FEM blocks so results are available to linked checks â”€â”€
     fem_results = {}
     for block in blocks:
         if block["type"] == "fem_beam":
@@ -854,9 +854,9 @@ def build_and_generate_pdf(project: dict, blocks: list) -> bytes:
             pass
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # BLOCK EDITOR WIDGETS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _uid(block, suffix):
     return f"{block['id']}_{suffix}"
@@ -897,14 +897,14 @@ def edit_timber_beam_column(block):
     d["b_mm"]     = c1.number_input("b [mm]",      value=d["b_mm"],     min_value=10.0, key=_uid(block,"b"))
     d["h_mm"]     = c2.number_input("h [mm]",      value=d["h_mm"],     min_value=10.0, key=_uid(block,"h"))
     d["length_m"] = c3.number_input("Length [m]",  value=d["length_m"], min_value=0.1,  key=_uid(block,"len"))
-    d["gamma_M"]  = c4.number_input("γ_M",         value=d["gamma_M"],  min_value=1.0,  key=_uid(block,"gM"))
+    d["gamma_M"]  = c4.number_input("Î³_M",         value=d["gamma_M"],  min_value=1.0,  key=_uid(block,"gM"))
 
     c1, c2, c3 = st.columns(3)
     d["load_duration"] = c1.selectbox("Load duration", LOAD_DURATIONS,
                                       index=LOAD_DURATIONS.index(d["load_duration"]),
                                       key=_uid(block,"ld"))
     d["N_Ed_kN"]  = c2.number_input("N_Ed [kN]",   value=d["N_Ed_kN"],   key=_uid(block,"N"))
-    d["M_Ed_kNm"] = c3.number_input("M_Ed [kN·m]", value=d["M_Ed_kNm"],  key=_uid(block,"M"))
+    d["M_Ed_kNm"] = c3.number_input("M_Ed [kNÂ·m]", value=d["M_Ed_kNm"],  key=_uid(block,"M"))
 
     c1, c2, c3, c4 = st.columns(4)
     d["eff_len"]   = c1.number_input("Eff. length factor", value=d["eff_len"], min_value=0.1, key=_uid(block,"ef"))
@@ -932,7 +932,7 @@ def edit_timber_beam(block):
     d["b_mm"]    = c1.number_input("b [mm]",   value=d["b_mm"],    min_value=10.0, key=_uid(block,"b"))
     d["h_mm"]    = c2.number_input("h [mm]",   value=d["h_mm"],    min_value=10.0, key=_uid(block,"h"))
     d["span_m"]  = c3.number_input("Span [m]", value=d["span_m"],  min_value=0.1,  key=_uid(block,"span"))
-    d["gamma_M"] = c4.number_input("γ_M",      value=d["gamma_M"], min_value=1.0,  key=_uid(block,"gM"))
+    d["gamma_M"] = c4.number_input("Î³_M",      value=d["gamma_M"], min_value=1.0,  key=_uid(block,"gM"))
 
     d["load_duration"] = st.selectbox("Load duration", LOAD_DURATIONS,
                                       index=LOAD_DURATIONS.index(d["load_duration"]),
@@ -951,7 +951,7 @@ def edit_timber_beam(block):
 
     if d["input_mode"] == "direct":
         c1, c2 = st.columns(2)
-        d["M_Ed_kNm"] = c1.number_input("M_Ed [kN·m]", value=d.get("M_Ed_kNm",0.0), key=_uid(block,"MEd"))
+        d["M_Ed_kNm"] = c1.number_input("M_Ed [kNÂ·m]", value=d.get("M_Ed_kNm",0.0), key=_uid(block,"MEd"))
         d["V_Ed_kN"]  = c2.number_input("V_Ed [kN]",   value=d.get("V_Ed_kN",0.0),  key=_uid(block,"VEd"))
     elif d["input_mode"] == "characteristic":
         c1, c2 = st.columns(2)
@@ -971,9 +971,9 @@ def edit_timber_beam(block):
             if fem_blk and fem_blk["data"].get("res_M_Ed_kNm") is not None:
                 fd = fem_blk["data"]
                 fc1, fc2, fc3 = st.columns(3)
-                fc1.metric("M_Ed", f"{fd['res_M_Ed_kNm']:.3f} kN·m")
+                fc1.metric("M_Ed", f"{fd['res_M_Ed_kNm']:.3f} kNÂ·m")
                 fc2.metric("V_Ed", f"{fd['res_V_Ed_kN']:.3f} kN")
-                fc3.metric("δ_max", f"{fd['res_delta_mm']:.3f} mm")
+                fc3.metric("Î´_max", f"{fd['res_delta_mm']:.3f} mm")
         else:
             st.info("Add a FEM beam block first.")
 
@@ -981,7 +981,7 @@ def edit_steel_beam(block):
     from section_catalog import load_steel_profiles, all_section_names
     d = block["data"]
 
-    # ── Label + grade ──────────────────────────────────────────────────────────
+    # â”€â”€ Label + grade â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     c1, c2, c3 = st.columns(3)
     d["label"] = c1.text_input("Label", d.get("label","S1"), key=_uid(block,"label"))
 
@@ -993,11 +993,11 @@ def edit_steel_beam(block):
     d["grade"]   = c2.selectbox("Steel grade", grade_keys,
                                  index=grade_keys.index(cur_grade),
                                  key=_uid(block,"grade"))
-    d["gamma_M0"] = c3.number_input("γ_M0", value=float(d.get("gamma_M0", 1.0)),
+    d["gamma_M0"] = c3.number_input("Î³_M0", value=float(d.get("gamma_M0", 1.0)),
                                      min_value=0.5, max_value=2.0,
                                      key=_uid(block,"gM0"))
 
-    # ── Section selector ───────────────────────────────────────────────────────
+    # â”€â”€ Section selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     st.markdown("**Section**")
     db = load_steel_profiles()
     all_keys = list(db.keys())           # e.g. ["IPE80", "IPE100", ...]
@@ -1022,29 +1022,29 @@ def edit_steel_beam(block):
     # Show section properties from catalog (read-only)
     _fs2.markdown(
         f"<div style='font-size:11px; color:#666; padding-top:6px;'>"
-        f"h = {sec['h_mm']:.0f} mm &nbsp;·&nbsp; "
+        f"h = {sec['h_mm']:.0f} mm &nbsp;Â·&nbsp; "
         f"b = {sec['b_mm']:.0f} mm<br>"
-        f"t<sub>w</sub> = {sec['tw_mm']:.1f} mm &nbsp;·&nbsp; "
+        f"t<sub>w</sub> = {sec['tw_mm']:.1f} mm &nbsp;Â·&nbsp; "
         f"t<sub>f</sub> = {sec['tf_mm']:.1f} mm<br>"
-        f"W<sub>pl,y</sub> = <b>{sec['Wply_cm3']:.0f} cm³</b> &nbsp;·&nbsp; "
-        f"I<sub>y</sub> = {sec['Iy_cm4']:.0f} cm⁴"
+        f"W<sub>pl,y</sub> = <b>{sec['Wply_cm3']:.0f} cmÂ³</b> &nbsp;Â·&nbsp; "
+        f"I<sub>y</sub> = {sec['Iy_cm4']:.0f} cmâ´"
         f"</div>",
         unsafe_allow_html=True,
     )
 
     f_y_mpa = GRADES[d["grade"]]
-    M_Rd_kNm = sec["Wply_cm3"] * 1e-6 * f_y_mpa * 1e3 / d["gamma_M0"]  # kN·m
+    M_Rd_kNm = sec["Wply_cm3"] * 1e-6 * f_y_mpa * 1e3 / d["gamma_M0"]  # kNÂ·m
     st.caption(
-        f"f_y = {f_y_mpa} MPa  ·  "
-        f"M_Rd = W_pl,y × f_y / γ_M0 = "
-        f"{sec['Wply_cm3']:.0f} cm³ × {f_y_mpa} MPa = **{M_Rd_kNm:.1f} kN·m**"
+        f"f_y = {f_y_mpa} MPa  Â·  "
+        f"M_Rd = W_pl,y Ã— f_y / Î³_M0 = "
+        f"{sec['Wply_cm3']:.0f} cmÂ³ Ã— {f_y_mpa} MPa = **{M_Rd_kNm:.1f} kNÂ·m**"
     )
 
-    # ── Span ──────────────────────────────────────────────────────────────────
+    # â”€â”€ Span â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     d["span_m"] = st.number_input("Span [m]", value=float(d.get("span_m",5.0)),
                                    min_value=0.1, key=_uid(block,"span"))
 
-    # ── Restraint flags ───────────────────────────────────────────────────────
+    # â”€â”€ Restraint flags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     st.markdown("**Stability restraints**")
     st.caption(
         "Tick each mode that is prevented by continuous or closely-spaced physical "
@@ -1053,29 +1053,29 @@ def edit_steel_beam(block):
     )
     rc1, rc2, rc3 = st.columns(3)
     d["ltb_restrained"]    = rc1.checkbox(
-        "Restrained — LTB",
+        "Restrained â€” LTB",
         value=bool(d.get("ltb_restrained", False)),
         key=_uid(block, "ltbr"),
-        help="Bottom (compression) flange restrained against lateral displacement → χ_LT = 1.0",
+        help="Bottom (compression) flange restrained against lateral displacement â†’ Ï‡_LT = 1.0",
     )
     d["buck_y_restrained"] = rc2.checkbox(
-        "Restrained — y-axis",
+        "Restrained â€” y-axis",
         value=bool(d.get("buck_y_restrained", False)),
         key=_uid(block, "byr"),
         help="Beam braced against out-of-plane movement (y-direction) by secondary beams/diaphragm",
     )
     d["buck_x_restrained"] = rc3.checkbox(
-        "Restrained — x-axis",
+        "Restrained â€” x-axis",
         value=bool(d.get("buck_x_restrained", False)),
         key=_uid(block, "bxr"),
         help="Support conditions prevent in-plane buckling (x-direction / plane of bending)",
     )
 
-    # ── LTB parameters (shown when not restrained) ────────────────────────────
+    # â”€â”€ LTB parameters (shown when not restrained) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not d["ltb_restrained"]:
         _family = sec.get("family", "")
         if _family in ("IPE", "HEA", "HEB"):
-            st.markdown("**LTB parameters** *(EN 1993-1-1 cl. 6.3.2.2 — general case)*")
+            st.markdown("**LTB parameters** *(EN 1993-1-1 cl. 6.3.2.2 â€” general case)*")
             lt1, lt2, lt3 = st.columns(3)
             _lcr_default = float(d.get("l_cr_ltb_m") or d.get("span_m", 5.0))
             d["l_cr_ltb_m"] = lt1.number_input(
@@ -1086,20 +1086,20 @@ def edit_steel_beam(block):
                 help="Effective LTB length = span between lateral restraints to compression flange",
             )
             d["C1_ltb"] = lt2.number_input(
-                "C₁ factor",
+                "Câ‚ factor",
                 value=float(d.get("C1_ltb", 1.0)),
                 min_value=0.5, max_value=2.5, step=0.01,
                 key=_uid(block, "C1ltb"),
                 help=(
                     "Equivalent uniform moment factor:\n"
                     "1.00 = uniform moment (conservative)\n"
-                    "1.13 ≈ triangular moment\n"
-                    "1.29 ≈ parabolic / UDL mid-span\n"
+                    "1.13 â‰ˆ triangular moment\n"
+                    "1.29 â‰ˆ parabolic / UDL mid-span\n"
                     "1.77 = single end moment"
                 ),
             )
             d["gamma_M1"] = lt3.number_input(
-                "γ_M1",
+                "Î³_M1",
                 value=float(d.get("gamma_M1", 1.0)),
                 min_value=0.5, max_value=2.0,
                 key=_uid(block, "gM1"),
@@ -1114,21 +1114,21 @@ def edit_steel_beam(block):
             _h   = sec["h_mm"]
             _tw  = sec["tw_mm"]
             _tf  = sec["tf_mm"]
-            _Wpl = sec["Wply_cm3"] * 1e3   # cm³ → mm³
+            _Wpl = sec["Wply_cm3"] * 1e3   # cmÂ³ â†’ mmÂ³
             _fy  = {"S235":235,"S275":275,"S355":355,"S420":420,"S460":460}.get(d.get("grade","S355"),355)
             _gM1 = d["gamma_M1"]
             try:
-                _Iz  = (_tf*_b**3/6 + (_h-2*_tf)*_tw**3/12) * 1e-8    # mm⁴ → cm⁴
-                _Iw  = (_b**3*_tf*(_h-_tf)**2/24) * 1e-12              # mm⁶ → m⁶ ... keep in mm⁶ for now
-                _It  = ((2*_b*_tf**3+(_h-2*_tf)*_tw**3)/3) * 1e-8     # mm⁴ → cm⁴
+                _Iz  = (_tf*_b**3/6 + (_h-2*_tf)*_tw**3/12) * 1e-8    # mmâ´ â†’ cmâ´
+                _Iw  = (_b**3*_tf*(_h-_tf)**2/24) * 1e-12              # mmâ¶ â†’ mâ¶ ... keep in mmâ¶ for now
+                _It  = ((2*_b*_tf**3+(_h-2*_tf)*_tw**3)/3) * 1e-8     # mmâ´ â†’ cmâ´
                 import math as _m
                 _Lcr_mm = _lcr * 1e3
-                _EIz    = _E * _Iz * 1e-8 * 1e6   # MPa × cm⁴ → N·mm²... easier in SI
+                _EIz    = _E * _Iz * 1e-8 * 1e6   # MPa Ã— cmâ´ â†’ NÂ·mmÂ²... easier in SI
                 # work in N and mm
-                _EIz_mm  = _E * (_Iz * 1e4)          # N/mm² × mm⁴
-                _GIt_mm  = _G * (_It * 1e4)          # N/mm² × mm⁴
-                _Iw_mm   = _b**3*_tf*(_h-_tf)**2/24  # mm⁶
-                _Iz_mm   = _tf*_b**3/6+(_h-2*_tf)*_tw**3/12  # mm⁴
+                _EIz_mm  = _E * (_Iz * 1e4)          # N/mmÂ² Ã— mmâ´
+                _GIt_mm  = _G * (_It * 1e4)          # N/mmÂ² Ã— mmâ´
+                _Iw_mm   = _b**3*_tf*(_h-_tf)**2/24  # mmâ¶
+                _Iz_mm   = _tf*_b**3/6+(_h-2*_tf)*_tw**3/12  # mmâ´
                 _Mcr_Nmm = (_C1 * (_m.pi**2*_EIz_mm/_Lcr_mm**2)
                            * (_m.sqrt(_Iw_mm/_Iz_mm + _Lcr_mm**2*_GIt_mm/(_m.pi**2*_EIz_mm))))
                 _Mcr_kNm = _Mcr_Nmm * 1e-6
@@ -1144,21 +1144,21 @@ def edit_steel_beam(block):
                 _col = "#2a7a4b" if _lbar <= 0.2 else ("#f0a500" if _lbar <= 1.0 else "#b03030")
                 st.markdown(
                     f"<p style='font-size:12px; color:{_col};'>"
-                    f"M_cr = {_Mcr_kNm:.1f} kN·m  ·  "
-                    f"λ̄_LT = {_lbar:.3f}  ·  "
-                    f"χ_LT = {_chi:.3f}  ·  "
-                    f"<b>M_b,Rd = {_Mb_kNm:.1f} kN·m</b></p>",
+                    f"M_cr = {_Mcr_kNm:.1f} kNÂ·m  Â·  "
+                    f"Î»Ì„_LT = {_lbar:.3f}  Â·  "
+                    f"Ï‡_LT = {_chi:.3f}  Â·  "
+                    f"<b>M_b,Rd = {_Mb_kNm:.1f} kNÂ·m</b></p>",
                     unsafe_allow_html=True,
                 )
             except Exception:
                 pass
         else:
             st.caption(
-                "ℹ️ LTB calculation is available for IPE / HEA / HEB sections. "
+                "â„¹ï¸ LTB calculation is available for IPE / HEA / HEB sections. "
                 "For L-profiles, check LTB using specialist tables or software."
             )
 
-    # ── Load input ────────────────────────────────────────────────────────────
+    # â”€â”€ Load input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     MODE_OPTIONS = ["Direct design actions (M_Ed, V_Ed)",
                     "Characteristic loads (g_k, q_k)",
                     "From FEM block"]
@@ -1172,7 +1172,7 @@ def edit_steel_beam(block):
 
     if d["input_mode"] == "direct":
         c1, c2 = st.columns(2)
-        d["M_Ed_kNm"] = c1.number_input("M_Ed [kN·m]", value=float(d.get("M_Ed_kNm",0.0)),
+        d["M_Ed_kNm"] = c1.number_input("M_Ed [kNÂ·m]", value=float(d.get("M_Ed_kNm",0.0)),
                                          key=_uid(block,"MEd"))
         d["V_Ed_kN"]  = c2.number_input("V_Ed [kN]",   value=float(d.get("V_Ed_kN",0.0)),
                                          key=_uid(block,"VEd"))
@@ -1183,7 +1183,7 @@ def edit_steel_beam(block):
             st.markdown(
                 f"<p style='font-size:12px; color:{color};'>"
                 f"M_Ed / M_Rd = {d['M_Ed_kNm']:.2f} / {M_Rd_kNm:.1f} = "
-                f"<b>{ratio:.3f}</b> {'✓ OK' if ratio <= 1.0 else '✗ FAIL'}</p>",
+                f"<b>{ratio:.3f}</b> {'âœ“ OK' if ratio <= 1.0 else 'âœ— FAIL'}</p>",
                 unsafe_allow_html=True,
             )
     elif d["input_mode"] == "characteristic":
@@ -1198,13 +1198,13 @@ def edit_steel_beam(block):
         ratio = M_Ed_prev / M_Rd_kNm
         color = "#2a7a4b" if ratio <= 1.0 else "#b03030"
         st.caption(
-            f"w_Ed = {w_Ed:.2f} kN/m  ·  "
-            f"M_Ed = {M_Ed_prev:.1f} kN·m  ·  "
+            f"w_Ed = {w_Ed:.2f} kN/m  Â·  "
+            f"M_Ed = {M_Ed_prev:.1f} kNÂ·m  Â·  "
             f"M_Ed / M_Rd = "
         )
         st.markdown(
             f"<p style='font-size:12px; color:{color}; margin-top:-8px;'>"
-            f"<b>{ratio:.3f}  {'✓ OK' if ratio <= 1.0 else '✗ FAIL'}</b></p>",
+            f"<b>{ratio:.3f}  {'âœ“ OK' if ratio <= 1.0 else 'âœ— FAIL'}</b></p>",
             unsafe_allow_html=True,
         )
     else:  # fem
@@ -1220,16 +1220,16 @@ def edit_steel_beam(block):
             if fem_blk and fem_blk["data"].get("res_M_Ed_kNm") is not None:
                 fd = fem_blk["data"]
                 fc1, fc2, fc3 = st.columns(3)
-                fc1.metric("M_Ed", f"{fd['res_M_Ed_kNm']:.3f} kN·m")
+                fc1.metric("M_Ed", f"{fd['res_M_Ed_kNm']:.3f} kNÂ·m")
                 fc2.metric("V_Ed", f"{fd['res_V_Ed_kN']:.3f} kN")
-                fc3.metric("δ_max", f"{fd['res_delta_mm']:.3f} mm")
+                fc3.metric("Î´_max", f"{fd['res_delta_mm']:.3f} mm")
                 # Live check preview from FEM
                 ratio = fd["res_M_Ed_kNm"] / M_Rd_kNm
                 color = "#2a7a4b" if ratio <= 1.0 else "#b03030"
                 st.markdown(
                     f"<p style='font-size:12px; color:{color};'>"
                     f"M_Ed / M_Rd = {fd['res_M_Ed_kNm']:.2f} / {M_Rd_kNm:.1f} = "
-                    f"<b>{ratio:.3f}</b> {'✓ OK' if ratio <= 1.0 else '✗ FAIL'}</p>",
+                    f"<b>{ratio:.3f}</b> {'âœ“ OK' if ratio <= 1.0 else 'âœ— FAIL'}</p>",
                     unsafe_allow_html=True,
                 )
         else:
@@ -1249,7 +1249,7 @@ def edit_concrete_beam(block):
     c1, c2, c3 = st.columns(3)
     d["f_ck_mpa"]    = c1.number_input("f_ck [MPa]",    value=d["f_ck_mpa"],    key=_uid(block,"fck"))
     d["f_yk_mpa"]    = c2.number_input("f_yk [MPa]",    value=d["f_yk_mpa"],    key=_uid(block,"fyk"))
-    d["As_prov_mm2"] = c3.number_input("As,prov [mm²]", value=d["As_prov_mm2"], key=_uid(block,"As"))
+    d["As_prov_mm2"] = c3.number_input("As,prov [mmÂ²]", value=d["As_prov_mm2"], key=_uid(block,"As"))
 
     action_mode = st.radio("Load input method",
                            ["Direct design actions (M_Ed, V_Ed)",
@@ -1259,7 +1259,7 @@ def edit_concrete_beam(block):
 
     if d["direct"]:
         c1, c2 = st.columns(2)
-        d["M_Ed_kNm"] = c1.number_input("M_Ed [kN·m]", value=d.get("M_Ed_kNm",0.0), key=_uid(block,"MEd"))
+        d["M_Ed_kNm"] = c1.number_input("M_Ed [kNÂ·m]", value=d.get("M_Ed_kNm",0.0), key=_uid(block,"MEd"))
         d["V_Ed_kN"]  = c2.number_input("V_Ed [kN]",   value=d.get("V_Ed_kN",0.0),  key=_uid(block,"VEd"))
     else:
         c1, c2 = st.columns(2)
@@ -1270,7 +1270,7 @@ def edit_masonry_wall(block):
     d = block["data"]
     c1, c2 = st.columns(2)
     d["label"]      = c1.text_input("Label", d["label"], key=_uid(block,"label"))
-    d["gamma_M"]    = c2.number_input("γ_M", value=d["gamma_M"], min_value=1.0, key=_uid(block,"gM"))
+    d["gamma_M"]    = c2.number_input("Î³_M", value=d["gamma_M"], min_value=1.0, key=_uid(block,"gM"))
 
     c1, c2, c3 = st.columns(3)
     d["height_m"]      = c1.number_input("Height [m]",       value=d["height_m"],      min_value=0.1, key=_uid(block,"ht"))
@@ -1287,7 +1287,7 @@ def edit_custom_calc(block):
     d["title"] = st.text_input("Section title", d.get("title","Custom Calculation"),
                                key=_uid(block,"title"))
 
-    # ── Variables ─────────────────────────────────────────────────────────────
+    # â”€â”€ Variables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     st.markdown("**Variables** *(name, value, unit)*")
     new_vars = []
     for vi, var in enumerate(d.get("vars",[])):
@@ -1301,38 +1301,38 @@ def edit_custom_calc(block):
                               index=UNIT_CHOICES.index(var.get("unit","-")),
                               key=_uid(block,f"vu{vi}"), label_visibility="collapsed",
                               format_func=lambda u: UNIT_LABELS.get(u, u))
-        keep  = not vc4.button("✕", key=_uid(block,f"vdel{vi}"), help="Remove")
+        keep  = not vc4.button("âœ•", key=_uid(block,f"vdel{vi}"), help="Remove")
         if keep:
             new_vars.append({"name": vname, "value": vval, "unit": vunit})
     d["vars"] = new_vars
 
     if st.button("+ Add variable", key=_uid(block,"vadd")):
         d["vars"].append({"name":"", "value":0.0, "unit":"-"})
-        st.experimental_rerun()
+        st.rerun()
 
     st.markdown("---")
 
-    # ── Formulas ──────────────────────────────────────────────────────────────
-    st.markdown("**Formulas** *(write any expression — units flow automatically)*")
-    st.caption("Examples:  `w_Ed = 1.35 * g_k + 1.5 * q_k`   ·   `F_Ed = w_Ed * L`   ·   `sigma = F_Ed / A`")
+    # â”€â”€ Formulas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    st.markdown("**Formulas** *(write any expression â€” units flow automatically)*")
+    st.caption("Examples:  `w_Ed = 1.35 * g_k + 1.5 * q_k`   Â·   `F_Ed = w_Ed * L`   Â·   `sigma = F_Ed / A`")
     new_formulas = []
     for fi, formula in enumerate(d.get("formulas",[])):
         fc1, fc2 = st.columns([6, 1])
         fval = fc1.text_input("Formula", formula, key=_uid(block,f"f{fi}"),
                               label_visibility="collapsed",
                               placeholder="e.g.   F_Ed = g_k * L")
-        keep = not fc2.button("✕", key=_uid(block,f"fdel{fi}"), help="Remove")
+        keep = not fc2.button("âœ•", key=_uid(block,f"fdel{fi}"), help="Remove")
         if keep:
             new_formulas.append(fval)
     d["formulas"] = new_formulas
 
     if st.button("+ Add formula", key=_uid(block,"fadd")):
         d["formulas"].append("")
-        st.experimental_rerun()
+        st.rerun()
 
     st.markdown("---")
 
-    # ── Live preview ──────────────────────────────────────────────────────────
+    # â”€â”€ Live preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     active_vars     = [v for v in d["vars"]     if v.get("name","").strip()]
     active_formulas = [f for f in d["formulas"] if f.strip() and "=" in f]
 
@@ -1359,9 +1359,9 @@ def edit_custom_calc(block):
 
     st.markdown("---")
 
-    # ── Pass/Fail checks ──────────────────────────────────────────────────────
+    # â”€â”€ Pass/Fail checks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     st.markdown("**Pass / Fail checks**")
-    st.caption("demand: type a variable name or expression  ·  capacity: value + unit")
+    st.caption("demand: type a variable name or expression  Â·  capacity: value + unit")
     new_checks = []
     for ci, chk in enumerate(d.get("checks",[])):
         cc1, cc2, cc3, cc4, cc5 = st.columns([3, 2, 2, 2, 1])
@@ -1377,7 +1377,7 @@ def edit_custom_calc(block):
                                 index=UNIT_CHOICES.index(chk.get("unit","-")),
                                 key=_uid(block,f"cu{ci}"), label_visibility="collapsed",
                                 format_func=lambda u: UNIT_LABELS.get(u, u))
-        keep    = not cc5.button("✕", key=_uid(block,f"cdel{ci}"), help="Remove")
+        keep    = not cc5.button("âœ•", key=_uid(block,f"cdel{ci}"), help="Remove")
         if keep:
             new_checks.append({"label":clabel,"demand":cdemand,
                                "capacity":ccap,"unit":cunit})
@@ -1385,7 +1385,7 @@ def edit_custom_calc(block):
 
     if st.button("+ Add check", key=_uid(block,"cadd")):
         d["checks"].append({"label":"Check","demand":"","capacity":1.0,"unit":"kN"})
-        st.experimental_rerun()
+        st.rerun()
 
 
 def edit_fem_beam(block):
@@ -1394,7 +1394,7 @@ def edit_fem_beam(block):
     LOAD_TYPES    = ["udl", "point", "trapezoidal"]
     LOAD_LABELS   = {"udl": "UDL", "point": "Point load", "trapezoidal": "Trapezoidal"}
 
-    # ── Identity ──────────────────────────────────────────────────────────────
+    # â”€â”€ Identity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     c1, c2, c3 = st.columns(3)
     d["label"]  = c1.text_input("Label", d.get("label","FEM-1"), key=_uid(block,"lbl"))
     d["span_m"] = c2.number_input("Span [m]", value=float(d.get("span_m",6.0)),
@@ -1403,18 +1403,18 @@ def edit_fem_beam(block):
                           value=int(d.get("n_elements",100)),
                           min_value=20, max_value=500, step=10, key=_uid(block,"nel")))
 
-    # ── Stiffness ─────────────────────────────────────────────────────────────
-    st.markdown("**Section stiffness — EI**")
+    # â”€â”€ Stiffness â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    st.markdown("**Section stiffness â€” EI**")
     sc1, sc2, sc3 = st.columns(3)
     d["E_mpa"]  = sc1.number_input("E [MPa]", value=float(d.get("E_mpa",210000.0)),
                                     min_value=1.0, key=_uid(block,"E"),
-                                    help="Steel ≈ 210 000  |  Timber ≈ 11 000  |  Concrete ≈ 30 000")
-    d["I_cm4"]  = sc2.number_input("I [cm⁴]", value=float(d.get("I_cm4",8356.0)),
+                                    help="Steel â‰ˆ 210 000  |  Timber â‰ˆ 11 000  |  Concrete â‰ˆ 30 000")
+    d["I_cm4"]  = sc2.number_input("I [cmâ´]", value=float(d.get("I_cm4",8356.0)),
                                     min_value=0.001, format="%.1f", key=_uid(block,"I"))
     EI = d["E_mpa"] * 1e6 * d["I_cm4"] * 1e-8
-    sc3.metric("EI  [kN·m²]", f"{EI/1e3:.0f}")
+    sc3.metric("EI  [kNÂ·mÂ²]", f"{EI/1e3:.0f}")
 
-    # ── Supports ──────────────────────────────────────────────────────────────
+    # â”€â”€ Supports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     st.markdown("**Supports**")
     # Visible column headers
     _sh1, _sh2, _sh3 = st.columns([2, 2, 1])
@@ -1439,9 +1439,9 @@ def edit_fem_beam(block):
     d["supports"] = new_supports
     if st.button("+ Add support", key=_uid(block, "sadd")):
         d["supports"].append({"x_m": d["span_m"], "type": "roller"})
-        st.experimental_rerun()
+        st.rerun()
 
-    # ── Loads ─────────────────────────────────────────────────────────────────
+    # â”€â”€ Loads â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     st.markdown("**Loads  (ULS combination applied automatically)**")
     loads = d.setdefault("loads", [])
     new_loads = []
@@ -1461,10 +1461,10 @@ def edit_fem_beam(block):
                 h1,h2,h3,h4,h5,h6 = st.columns(6)
                 h1.caption("g_k  [kN/m]")
                 h2.caption("q_k  [kN/m]")
-                h3.caption("γ_G")
-                h4.caption("γ_Q")
-                h5.caption("x₁  [m]")
-                h6.caption("x₂  [m]")
+                h3.caption("Î³_G")
+                h4.caption("Î³_Q")
+                h5.caption("xâ‚  [m]")
+                h6.caption("xâ‚‚  [m]")
                 u1,u2,u3,u4,u5,u6 = st.columns(6)
                 load["g_k_kNm"] = u1.number_input("g_k", value=float(load.get("g_k_kNm", 5.0)),
                                                    key=_uid(block, f"lgk{li}"),
@@ -1472,10 +1472,10 @@ def edit_fem_beam(block):
                 load["q_k_kNm"] = u2.number_input("q_k", value=float(load.get("q_k_kNm", 3.0)),
                                                    key=_uid(block, f"lqk{li}"),
                                                    label_visibility="collapsed")
-                load["gamma_G"] = u3.number_input("γ_G", value=float(load.get("gamma_G", 1.35)),
+                load["gamma_G"] = u3.number_input("Î³_G", value=float(load.get("gamma_G", 1.35)),
                                                    key=_uid(block, f"lgG{li}"),
                                                    label_visibility="collapsed")
-                load["gamma_Q"] = u4.number_input("γ_Q", value=float(load.get("gamma_Q", 1.50)),
+                load["gamma_Q"] = u4.number_input("Î³_Q", value=float(load.get("gamma_Q", 1.50)),
                                                    key=_uid(block, f"lgQ{li}"),
                                                    label_visibility="collapsed")
                 load["x1_m"]   = u5.number_input("x1",  value=float(load.get("x1_m", 0.0)),
@@ -1486,8 +1486,8 @@ def edit_fem_beam(block):
                                                    label_visibility="collapsed")
                 w_Ed = load["gamma_G"] * load["g_k_kNm"] + load["gamma_Q"] * load["q_k_kNm"]
                 st.caption(
-                    f"w_Ed = {load['gamma_G']}×{load['g_k_kNm']} "
-                    f"+ {load['gamma_Q']}×{load['q_k_kNm']} = **{w_Ed:.3f} kN/m**"
+                    f"w_Ed = {load['gamma_G']}Ã—{load['g_k_kNm']} "
+                    f"+ {load['gamma_Q']}Ã—{load['q_k_kNm']} = **{w_Ed:.3f} kN/m**"
                 )
 
             elif new_type == "point":
@@ -1507,14 +1507,14 @@ def edit_fem_beam(block):
             elif new_type == "trapezoidal":
                 # Two rows of headers for 8 narrow columns
                 th1,th2,th3,th4,th5,th6,th7,th8 = st.columns(8)
-                th1.caption("g_k₁ [kN/m]")
-                th2.caption("q_k₁ [kN/m]")
-                th3.caption("g_k₂ [kN/m]")
-                th4.caption("q_k₂ [kN/m]")
-                th5.caption("γ_G")
-                th6.caption("γ_Q")
-                th7.caption("x₁ [m]")
-                th8.caption("x₂ [m]")
+                th1.caption("g_kâ‚ [kN/m]")
+                th2.caption("q_kâ‚ [kN/m]")
+                th3.caption("g_kâ‚‚ [kN/m]")
+                th4.caption("q_kâ‚‚ [kN/m]")
+                th5.caption("Î³_G")
+                th6.caption("Î³_Q")
+                th7.caption("xâ‚ [m]")
+                th8.caption("xâ‚‚ [m]")
                 t1,t2,t3,t4,t5,t6,t7,t8 = st.columns(8)
                 load["g_k1_kNm"] = t1.number_input("g_k1", value=float(load.get("g_k1_kNm", 5.0)),
                                                     key=_uid(block, f"lgk1{li}"),
@@ -1528,10 +1528,10 @@ def edit_fem_beam(block):
                 load["q_k2_kNm"] = t4.number_input("q_k2", value=float(load.get("q_k2_kNm", 0.0)),
                                                     key=_uid(block, f"lqk2{li}"),
                                                     label_visibility="collapsed")
-                load["gamma_G"]  = t5.number_input("γ_G",  value=float(load.get("gamma_G", 1.35)),
+                load["gamma_G"]  = t5.number_input("Î³_G",  value=float(load.get("gamma_G", 1.35)),
                                                     key=_uid(block, f"ltgG{li}"),
                                                     label_visibility="collapsed")
-                load["gamma_Q"]  = t6.number_input("γ_Q",  value=float(load.get("gamma_Q", 1.50)),
+                load["gamma_Q"]  = t6.number_input("Î³_Q",  value=float(load.get("gamma_Q", 1.50)),
                                                     key=_uid(block, f"ltgQ{li}"),
                                                     label_visibility="collapsed")
                 load["x1_m"]     = t7.number_input("x1",   value=float(load.get("x1_m", 0.0)),
@@ -1562,17 +1562,17 @@ def edit_fem_beam(block):
                                  "x1_m":0.0,"x2_m":d["span_m"]},
             }
             d["loads"].append(defaults[ltype_default])
-            st.experimental_rerun()
+            st.rerun()
 
-    # ── Live beam layout preview ───────────────────────────────────────────────
+    # â”€â”€ Live beam layout preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if d.get("supports") or d.get("loads"):
         try:
             preview_png = _beam_layout_preview_bytes(d)
             st.image(preview_png, use_column_width=True)
         except Exception:
-            pass  # silent — don't clutter UI with preview errors
+            pass  # silent â€” don't clutter UI with preview errors
 
-    # ── Run FEM + show results ─────────────────────────────────────────────────
+    # â”€â”€ Run FEM + show results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     st.markdown("---")
     can_run = len(d.get("supports", [])) >= 2 and len(d.get("loads", [])) >= 1
     if can_run:
@@ -1588,11 +1588,11 @@ def edit_fem_beam(block):
 
             # Key result metrics
             rc1, rc2, rc3 = st.columns(3)
-            rc1.metric("M_Ed",  f"{d['res_M_Ed_kNm']:.3f} kN·m",
+            rc1.metric("M_Ed",  f"{d['res_M_Ed_kNm']:.3f} kNÂ·m",
                                 f"at x = {d['res_x_M_m']:.3f} m")
             rc2.metric("V_Ed",  f"{d['res_V_Ed_kN']:.3f} kN",
                                 f"at x = {d['res_x_V_m']:.3f} m")
-            rc3.metric("δ_max", f"{d['res_delta_mm']:.3f} mm",
+            rc3.metric("Î´_max", f"{d['res_delta_mm']:.3f} mm",
                                 f"at x = {d['res_x_delta_m']:.3f} m")
 
             # Results diagram (4-panel, compact)
@@ -1640,11 +1640,11 @@ LABELS = {
     "figure":             "Figure",
     "pagebreak":          "Page break",
     "fem_beam":           "FEM beam analysis",
-    "timber_beam_column": "Timber beam-column — EN 1995",
-    "timber_beam":        "Timber beam — EN 1995",
-    "steel_beam":         "Steel beam IPE / HEA / HEB / L — EN 1993",
-    "concrete_beam":      "Concrete beam — EN 1992",
-    "masonry_wall":       "Masonry wall — EN 1996",
+    "timber_beam_column": "Timber beam-column â€” EN 1995",
+    "timber_beam":        "Timber beam â€” EN 1995",
+    "steel_beam":         "Steel beam IPE / HEA / HEB / L â€” EN 1993",
+    "concrete_beam":      "Concrete beam â€” EN 1992",
+    "masonry_wall":       "Masonry wall â€” EN 1996",
     "custom_calc":        "Custom calculation",
 }
 
@@ -1659,9 +1659,9 @@ def _block_summary(block) -> str:
         return d.get("label","")
     return ""
 
-# ─────────────────────────────────────────────────────────────────────────────
-# SIDEBAR — PROJECT METADATA
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# SIDEBAR â€” PROJECT METADATA
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 with st.sidebar:
     logo_path = BASE_DIR / "Billede2.png"
@@ -1717,9 +1717,9 @@ with st.sidebar:
     if not out_name.endswith(".pdf"):
         out_name += ".pdf"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# MAIN — HEADER + GENERATE BUTTON
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# MAIN â€” HEADER + GENERATE BUTTON
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 col_h, col_btn = st.columns([4, 1])
 with col_h:
@@ -1727,7 +1727,7 @@ with col_h:
         f"<h1 style='font-size:22px; font-weight:700; letter-spacing:0.02em; margin-bottom:2px;'>"
         f"Report Builder</h1>"
         f"<p style='font-size:12px; color:#999; margin-top:0;'>"
-        f"{proj_project} &nbsp;·&nbsp; {proj_ref} &nbsp;·&nbsp; Rev {proj_rev}"
+        f"{proj_project} &nbsp;Â·&nbsp; {proj_ref} &nbsp;Â·&nbsp; Rev {proj_rev}"
         f"</p>",
         unsafe_allow_html=True,
     )
@@ -1757,14 +1757,14 @@ if gen_btn:
 
 st.markdown("---")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# MAIN — BLOCK LIST
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# MAIN â€” BLOCK LIST
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 if not st.session_state.blocks:
     st.markdown(
         "<p style='color:#bbb; font-size:13px; padding:24px 0;'>"
-        "No blocks yet — use Add block below to start building your report."
+        "No blocks yet â€” use Add block below to start building your report."
         "</p>",
         unsafe_allow_html=True,
     )
@@ -1775,7 +1775,7 @@ for i, block in enumerate(st.session_state.blocks):
     t       = block["type"]
     label   = LABELS.get(t, t)
     summary = _block_summary(block)
-    header  = f"**{label}**" + (f"  —  {summary}" if summary else "")
+    header  = f"**{label}**" + (f"  â€”  {summary}" if summary else "")
 
     with st.expander(header, expanded=(t == "custom_calc" and not summary)):
         if t == "pagebreak":
@@ -1788,23 +1788,23 @@ for i, block in enumerate(st.session_state.blocks):
         if bc1.button("Up", key=f"up_{block['id']}", help="Move up") and i > 0:
             lst = st.session_state.blocks
             lst[i], lst[i-1] = lst[i-1], lst[i]
-            st.experimental_rerun()
+            st.rerun()
         if bc2.button("Down", key=f"dn_{block['id']}", help="Move down") \
                 and i < len(st.session_state.blocks) - 1:
             lst = st.session_state.blocks
             lst[i], lst[i+1] = lst[i+1], lst[i]
-            st.experimental_rerun()
+            st.rerun()
         if bc3.button("Delete", key=f"del_{block['id']}"):
             to_delete.add(block["id"])
 
 if to_delete:
     st.session_state.blocks = [b for b in st.session_state.blocks
                                 if b["id"] not in to_delete]
-    st.experimental_rerun()
+    st.rerun()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# MAIN — ADD BLOCK
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# MAIN â€” ADD BLOCK
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 st.markdown("---")
 st.markdown(
@@ -1828,6 +1828,7 @@ if add_pressed:
     btype = BLOCK_MENU.get(selected)
     if btype is not None:
         st.session_state.blocks.append(_default_block(btype))
-        st.experimental_rerun()
+        st.rerun()
     else:
         st.warning("Please select a block type (not a separator).")
+
