@@ -41,7 +41,7 @@ from timber_column import timber_column_bending_and_axial
 from steel import steel_beam_ipe
 from concrete import rc_beam_bending
 from concrete_column import concrete_column_rect
-from masonry import masonry_wall_vertical
+from masonry import masonry_wall_vertical, masonry_wall_ritter
 
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 # CONSTANTS
@@ -88,6 +88,7 @@ BLOCK_MENU = {
     "Concrete beam  (EN 1992)": "concrete_beam",
     "Concrete column  (EN 1992)": "concrete_column",
     "Masonry wall  (EN 1996)": "masonry_wall",
+    "Masonry wall Ritter  (EN 1996)": "masonry_ritter",
     "— Content —": None,
     "Custom calculation": "custom_calc",
     "Section heading": "heading",
@@ -312,6 +313,14 @@ def _default_block(btype):
         base["data"] = {
             "label":"MW1","height_m":2.7,"thickness_mm":150.0,"length_m":1.0,
             "N_k_kN":30.0,"f_b_mpa":10.0,"f_m_mpa":4.0,"gamma_M":2.5,
+        }
+    elif btype == "masonry_ritter":
+        base["data"] = {
+            "label":"MR1",
+            "b_m":1.0,"t_ef_mm":150.0,"h_ef_mm":2700.0,"e_m_mm":10.0,
+            "N_Ed_kN":80.0,
+            "f_b_mpa":10.0,"f_m_mpa":4.0,
+            "K":0.55,"gamma_M":2.5,"K1":0.9,
         }
     elif btype == "custom_calc":
         base["data"] = {
@@ -885,6 +894,22 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
             f_b       = d["f_b_mpa"]        * MPa,
             f_m       = d["f_m_mpa"]        * MPa,
             gamma_M   = d["gamma_M"],
+        )
+
+    elif t == "masonry_ritter":
+        d = block["data"]
+        return masonry_wall_ritter(
+            label   = d["label"],
+            b       = d["b_m"]       * m,
+            t_ef    = d["t_ef_mm"]   * mm,
+            h_ef    = d["h_ef_mm"]   * mm,
+            e_m     = d["e_m_mm"]    * mm,
+            N_Ed    = d["N_Ed_kN"]   * kN,
+            f_b     = d["f_b_mpa"]   * MPa,
+            f_m     = d["f_m_mpa"]   * MPa,
+            K       = d["K"],
+            gamma_M = d["gamma_M"],
+            K1      = d["K1"],
         )
 
     elif t == "custom_calc":
@@ -1480,6 +1505,28 @@ def edit_masonry_wall(block):
     d["f_b_mpa"]  = c2.number_input("f_b [MPa]",  value=d["f_b_mpa"],  key=_uid(block,"fb"))
     d["f_m_mpa"]  = c3.number_input("f_m [MPa]",  value=d["f_m_mpa"],  key=_uid(block,"fm"))
 
+def edit_masonry_ritter(block):
+    d = block["data"]
+    c1, c2 = st.columns(2)
+    d["label"]    = c1.text_input("Label", d["label"], key=_uid(block,"label"))
+    d["K1"]       = c2.number_input("K_1 (long-term)", value=d["K1"], min_value=0.1, max_value=1.0, key=_uid(block,"K1"))
+
+    c1, c2, c3 = st.columns(3)
+    d["b_m"]      = c1.number_input("b [m] (width)",      value=d["b_m"],     min_value=0.1,  key=_uid(block,"bm"))
+    d["t_ef_mm"]  = c2.number_input("t_ef [mm]",           value=d["t_ef_mm"], min_value=50.0, key=_uid(block,"tef"))
+    d["h_ef_mm"]  = c3.number_input("h_ef [mm]",           value=d["h_ef_mm"], min_value=100.0,key=_uid(block,"hef"))
+
+    c1, c2, c3 = st.columns(3)
+    d["e_m_mm"]   = c1.number_input("e_m [mm] (eccentricity)", value=d["e_m_mm"],  min_value=0.0,  key=_uid(block,"em"))
+    d["N_Ed_kN"]  = c2.number_input("N_Ed [kN]",               value=d["N_Ed_kN"], key=_uid(block,"NEd"))
+    d["f_b_mpa"]  = c3.number_input("f_b [MPa]",               value=d["f_b_mpa"], key=_uid(block,"fb"))
+
+    c1, c2, c3 = st.columns(3)
+    d["f_m_mpa"]  = c1.number_input("f_m [MPa]",   value=d["f_m_mpa"],  key=_uid(block,"fm"))
+    d["K"]        = c2.number_input("K (Table 3.3)", value=d["K"],        key=_uid(block,"Ktab"))
+    d["gamma_M"]  = c3.number_input("gamma_M",       value=d["gamma_M"], min_value=1.0, key=_uid(block,"gM"))
+
+
 def edit_custom_calc(block):
     d = block["data"]
     d["title"] = st.text_input("Section title", d.get("title","Custom Calculation"),
@@ -1815,6 +1862,7 @@ EDITORS = {
     "concrete_beam":      edit_concrete_beam,
     "concrete_column":    edit_concrete_column,
     "masonry_wall":       edit_masonry_wall,
+    "masonry_ritter":     edit_masonry_ritter,
     "custom_calc":        edit_custom_calc,
 }
 
@@ -1830,6 +1878,7 @@ ICONS = {
     "concrete_beam":      "",
     "concrete_column":    "",
     "masonry_wall":       "",
+    "masonry_ritter":     "",
     "custom_calc":        "",
 }
 
@@ -1846,6 +1895,7 @@ LABELS = {
     "concrete_beam":      "Concrete beam — EN 1992",
     "concrete_column":    "Concrete column — EN 1992",
     "masonry_wall":       "Masonry wall — EN 1996",
+    "masonry_ritter":     "Masonry wall Ritter — EN 1996",
     "custom_calc":        "Custom calculation",
 }
 
@@ -1855,7 +1905,7 @@ def _block_summary(block) -> str:
         return block.get("text","")[:60]
     if t == "custom_calc":
         return block.get("data",{}).get("title","")
-    if t in ("timber_beam_column","timber_beam","steel_beam","concrete_beam","concrete_column","masonry_wall"):
+    if t in ("timber_beam_column","timber_beam","steel_beam","concrete_beam","concrete_column","masonry_wall","masonry_ritter"):
         d = block.get("data",{})
         return d.get("label","")
     return ""

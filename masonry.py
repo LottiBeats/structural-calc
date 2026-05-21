@@ -701,3 +701,141 @@ def masonry_bearing_under_beam(
     blocks.append(cc.check("Masonry bearing — EN 1996-1-1 sec. 6.1.3", N_Ed, N_Rd))
 
     return blocks
+
+
+def masonry_wall_ritter(
+    label,
+    b,           # wall tributary width   [forallpeople, e.g. 1.0*m]
+    t_ef,        # effective thickness     [forallpeople, e.g. 150*mm]
+    h_ef,        # effective height        [forallpeople, e.g. 2700*mm]
+    e_m,         # midheight eccentricity  [forallpeople, e.g. 10*mm]
+    N_Ed,        # design axial force ULS  [forallpeople, e.g. 80*kN]
+    f_b,         # unit norm. comp. str.   [forallpeople, e.g. 10*MPa]
+    f_m,         # mortar comp. strength   [forallpeople, e.g. 4*MPa]
+    K      = 0.55,   # EN 1996-1-1 Table 3.3
+    gamma_M = 2.5,   # partial factor
+    K1     = 0.9,    # long-term factor K_1
+):
+    """Single masonry wall — vertical resistance by the Ritter method.
+
+    N_Rd = K_1 * K_2 * A * f_d
+    K_2  = 1 / (1 + 12/K_2^2 * (h_ef/(t_ef-2*e_m))^2)  [iterated to convergence]
+    A    = b * (t_ef - 2*e_m)
+    """
+    cc = CheckContext()
+    blocks = []
+
+    blocks.append(MH(
+        "Masonry wall — Ritter",
+        f"{label}  |  EN 1996-1-1 — Ritter capacity check",
+        material="masonry",
+    ))
+
+    blocks.append(S("Design parameters"))
+    blocks.append(TBL(
+        ["Property", "Symbol", "Value"],
+        [
+            ["Wall width (tributary)", "b",        str(b)],
+            ["Effective thickness",    "t_ef",     str(t_ef)],
+            ["Effective height",       "h_ef",     str(h_ef)],
+            ["Midheight eccentricity", "e_m",      str(e_m)],
+            ["Design axial force",     "N_Ed",     str(N_Ed)],
+            ["Unit comp. strength",    "f_b",      str(f_b)],
+            ["Mortar strength",        "f_m",      str(f_m)],
+            ["Constant K (Table 3.3)", "K",        str(K)],
+            ["Partial factor",         "gamma_M",  str(gamma_M)],
+            ["Long-term factor",       "K_1",      str(K1)],
+        ]
+    ))
+
+    # --- 1. Masonry characteristic and design strength ---
+    blocks.append(S("Characteristic compressive strength — EN 1996-1-1 eq. 3.2"))
+
+    @handcalc(override="long", precision=3)
+    def _fk(K, f_b, f_m, gamma_M):
+        f_k = K * f_b**0.70 * f_m**0.30   # characteristic compressive strength
+        f_d = f_k / gamma_M                 # design compressive strength
+        return f_k, f_d
+
+    latex, (f_k, f_d) = _fk(K, f_b, f_m, gamma_M)
+    blocks.append(hc_block(latex, "Masonry strength"))
+
+    # --- 2. Effective cross-section ---
+    blocks.append(S("Effective cross-section — A = b * (t_ef - 2*e_m)"))
+
+    @handcalc(override="long", precision=3)
+    def _area(b, t_ef, e_m):
+        t_red = t_ef - 2.0 * e_m   # reduced thickness
+        A = b * t_red               # effective cross-sectional area
+        return t_red, A
+
+    latex_area, (t_red, A_eff) = _area(b, t_ef, e_m)
+    blocks.append(hc_block(latex_area, "Effective area"))
+
+    # Guard against invalid eccentricity
+    try:
+        t_red_m = float(t_red.to(m))
+    except Exception:
+        t_red_m = float(t_red) / 1000.0   # assume mm input
+
+    if t_red_m <= 0.0:
+        blocks.append(N(
+            "ERROR: t_ef - 2*e_m <= 0. "
+            "The midheight eccentricity exceeds half the wall thickness — geometry invalid."
+        ))
+        return blocks
+
+    try:
+        h_ef_m = float(h_ef.to(m))
+    except Exception:
+        h_ef_m = float(h_ef) / 1000.0   # assume mm input
+
+    # --- 3. Slenderness ratio ---
+    blocks.append(S("Slenderness ratio"))
+
+    @handcalc(override="long", precision=3)
+    def _lam(h_ef, t_red):
+        lam_ef = h_ef / t_red   # effective slenderness ratio
+        return lam_ef
+
+    latex_lam, _ = _lam(h_ef, t_red)
+    lam = h_ef_m / t_red_m   # plain float for iteration
+    blocks.append(hc_block(latex_lam, f"Slenderness = {lam:.3f}"))
+
+    # --- 4. Ritter K_2 — iterative ---
+    blocks.append(S("Ritter reduction factor K_2"))
+    blocks.append(N(
+        "K_2 is solved iteratively from: K_2 = 1 / (1 + 12/K_2^2 * lam_ef^2). "
+        "Iteration starts at K_2 = 1.0 and converges typically within 20 steps."
+    ))
+
+    K2 = 1.0
+    for _ in range(100):
+        K2_new = 1.0 / (1.0 + 12.0 / K2**2 * lam**2)
+        if abs(K2_new - K2) < 1e-8:
+            K2 = K2_new
+            break
+        K2 = K2_new
+
+    @handcalc(override="long", precision=4)
+    def _k2(K2, lam):
+        K2_converged = 1.0 / (1.0 + 12.0 / K2**2 * lam**2)   # Ritter reduction factor
+        return K2_converged
+
+    latex_k2, _ = _k2(K2, lam)
+    blocks.append(hc_block(latex_k2, f"K_2 = {K2:.4f} (converged)"))
+
+    # --- 5. Design resistance ---
+    blocks.append(S("Design resistance — N_Rd = K_1 * K_2 * A * f_d"))
+
+    @handcalc(override="long", precision=3)
+    def _nrd(K1, K2, A_eff, f_d):
+        N_Rd = K1 * K2 * A_eff * f_d   # design resistance
+        return N_Rd
+
+    latex_nr, N_Rd = _nrd(K1, K2, A_eff, f_d)
+    blocks.append(hc_block(latex_nr, "Ritter design resistance"))
+
+    blocks.append(cc.check("Vertical load — Ritter: N_Ed / N_Rd", N_Ed, N_Rd))
+
+    return blocks
