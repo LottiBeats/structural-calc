@@ -111,6 +111,9 @@ st.markdown("""
 /* Hide Streamlit chrome */
 #MainMenu, footer, header { visibility: hidden; }
 
+/* Keep sidebar toggle button visible even when header is hidden */
+[data-testid="collapsedControl"] { visibility: visible !important; }
+
 /* Sidebar headings */
 [data-testid="stSidebar"] h2 {
     font-size: 11px !important; letter-spacing: 0.1em;
@@ -1834,5 +1837,6 @@ if add_pressed:
         st.rerun()
     else:
         st.warning("Please select a block type (not a separator).")
+
 
 
