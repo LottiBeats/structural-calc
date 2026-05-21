@@ -109,10 +109,8 @@ st.set_page_config(
 st.markdown("""
 <style>
 /* Hide Streamlit chrome */
-#MainMenu, footer, header { visibility: hidden; }
-
-/* Keep sidebar toggle button visible even when header is hidden */
-[data-testid="collapsedControl"] { visibility: visible !important; }
+#MainMenu, footer { visibility: hidden; }
+header { background: transparent !important; box-shadow: none !important; }
 
 /* Sidebar headings */
 [data-testid="stSidebar"] h2 {
@@ -1837,6 +1835,7 @@ if add_pressed:
         st.rerun()
     else:
         st.warning("Please select a block type (not a separator).")
+
 
 
 
