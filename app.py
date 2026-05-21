@@ -1199,7 +1199,7 @@ def edit_steel_beam(block):
                 help="Effective LTB length = span between lateral restraints to compression flange",
             )
             d["C1_ltb"] = lt2.number_input(
-                "C₁ factor",
+                "C1 factor",
                 value=float(d.get("C1_ltb", 1.0)),
                 min_value=0.5, max_value=2.5, step=0.01,
                 key=_uid(block, "C1ltb"),
@@ -1258,7 +1258,7 @@ def edit_steel_beam(block):
                 st.markdown(
                     f"<p style='font-size:12px; color:{_col};'>"
                     f"M_cr = {_Mcr_kNm:.1f} kN·m  ·  "
-                    f"λ̄_LT = {_lbar:.3f}  ·  "
+                    f"λ_LT = {_lbar:.3f}  ·  "
                     f"χ_LT = {_chi:.3f}  ·  "
                     f"<b>M_b,Rd = {_Mb_kNm:.1f} kN·m</b></p>",
                     unsafe_allow_html=True,

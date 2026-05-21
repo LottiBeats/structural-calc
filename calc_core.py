@@ -42,45 +42,51 @@ _BASE_DIR = Path(__file__).resolve().parent
 LOGO_PATH = str(_BASE_DIR / "omkreds_logo.png")
 
 # ─────────────────────────────────────────────────────────────
-# COLOURS  — OMKREDS brand palette
+# COLOURS  — minimal palette
 # ─────────────────────────────────────────────────────────────
 
 ORANGE = colors.HexColor("#E74825")   # OMKREDS primary orange
 
+# Minimal neutral palette — no coloured fills in content area
 C = {
-    # teal family — header bars, cover band, accents
-    "green_dark":   colors.HexColor("#032E38"),   # dark teal
-    "green_mid":    colors.HexColor("#12788E"),   # mid teal
-    "green_light":  colors.HexColor("#EDEFF0"),   # near-white grey
-    "green_bdr":    colors.HexColor("#C2C9CC"),   # border grey
-    # orange
+    # text
+    "text_dark":    colors.HexColor("#1C1C1E"),
+    "text_mid":     colors.HexColor("#6E6E73"),
+    "text_light":   colors.HexColor("#AEAEB2"),
+    # OMKREDS orange (used sparingly as accent lines)
     "orange":       ORANGE,
-    "orange_light": colors.HexColor("#FEF4F2"),   # very light orange
-    # status: pass
-    "pass_bg":      colors.HexColor("#EDEFF0"),
-    "pass_text":    colors.HexColor("#032E38"),
-    "pass_bdr":     colors.HexColor("#C2C9CC"),
-    # status: fail
-    "fail_bg":      colors.HexColor("#FEF4F2"),
-    "fail_text":    colors.HexColor("#AE3419"),
-    "fail_bdr":     colors.HexColor("#F78369"),
-    # status: amber/note
-    "amber_bg":     colors.HexColor("#FEF4F2"),
-    "amber_text":   colors.HexColor("#731F0D"),
-    "amber_bdr":    colors.HexColor("#E74825"),
-    # neutrals
-    "gray_light":   colors.HexColor("#EDEFF0"),
-    "gray_mid":     colors.HexColor("#C2C9CC"),
-    "text_main":    colors.HexColor("#191B1C"),
-    "text_muted":   colors.HexColor("#595F61"),
+    "orange_light": colors.HexColor("#FEF4F2"),
+    # rules / dividers
+    "rule_mid":     colors.HexColor("#C8C8CC"),
+    "rule_light":   colors.HexColor("#E5E5EA"),
+    # status colours — text only, no fills
+    "pass_text":    colors.HexColor("#1A7F37"),
+    "fail_text":    colors.HexColor("#CF1124"),
+    "amber_text":   colors.HexColor("#B45309"),
+    # keeps
+    "green_dark":   colors.HexColor("#1C1C1E"),
+    "green_mid":    colors.HexColor("#6E6E73"),
+    "green_light":  colors.white,
+    "green_bdr":    colors.HexColor("#E5E5EA"),
+    "pass_bg":      colors.white,
+    "pass_bdr":     colors.HexColor("#E5E5EA"),
+    "fail_bg":      colors.white,
+    "fail_bdr":     colors.HexColor("#E5E5EA"),
+    "amber_bg":     colors.white,
+    "amber_bdr":    ORANGE,
+    "gray_light":   colors.HexColor("#F5F5F5"),
+    "gray_mid":     colors.HexColor("#E5E5EA"),
+    "text_main":    colors.HexColor("#1C1C1E"),
+    "text_muted":   colors.HexColor("#6E6E73"),
 }
 
+# Material accent colours — used only for thin left rules / underlines
 MATERIAL_COLORS = {
     "steel":    colors.HexColor("#12788E"),   # teal
     "timber":   colors.HexColor("#AE3419"),   # dark orange-brown
     "concrete": colors.HexColor("#595F61"),   # mid grey
     "masonry":  colors.HexColor("#731F0D"),   # deep brown-orange
-    "general":  colors.HexColor("#032E38"),   # dark teal
+    "general":  ORANGE,                       # OMKREDS orange
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -242,32 +248,32 @@ def _latex_to_plain(latex):
 
 def make_styles():
     return {
-        # ── existing content styles ──────────────────────────
-        "normal":     ParagraphStyle("normal",    fontName="Helvetica",        fontSize=9,   leading=13, textColor=C["text_main"],  spaceAfter=2),
-        "note":       ParagraphStyle("note",      fontName="Helvetica-Oblique",fontSize=8.5, leading=12, textColor=C["text_muted"], spaceAfter=2),
-        "section":    ParagraphStyle("section",   fontName="Helvetica-Bold",   fontSize=9.5, leading=13, textColor=C["green_dark"], spaceBefore=5, spaceAfter=2),
-        "hc_var":     ParagraphStyle("hc_var",    fontName="Courier-Bold",     fontSize=9,   leading=12, textColor=C["text_main"]),
-        "hc_sym":     ParagraphStyle("hc_sym",    fontName="Courier",          fontSize=8.5, leading=12, textColor=C["text_muted"]),
-        "hc_res":     ParagraphStyle("hc_res",    fontName="Courier-Bold",     fontSize=9,   leading=12, textColor=C["green_mid"]),
-        "hc_lbl":     ParagraphStyle("hc_lbl",    fontName="Helvetica",        fontSize=7,   leading=10, textColor=C["text_muted"]),
-        "hc_eq":      ParagraphStyle("hc_eq",     fontName="Helvetica",        fontSize=8.5, leading=12, textColor=C["text_muted"]),
+        # ── content styles ──────────────────────────────────
+        "normal":     ParagraphStyle("normal",    fontName="Helvetica",        fontSize=9,   leading=13, textColor=C["text_dark"],  spaceAfter=2),
+        "note":       ParagraphStyle("note",      fontName="Helvetica-Oblique",fontSize=8.5, leading=12, textColor=C["text_mid"],   spaceAfter=2),
+        "section":    ParagraphStyle("section",   fontName="Helvetica-Bold",   fontSize=8,   leading=12, textColor=C["text_mid"],   spaceBefore=5, spaceAfter=1),
+        "hc_var":     ParagraphStyle("hc_var",    fontName="Courier-Bold",     fontSize=9,   leading=12, textColor=C["text_dark"]),
+        "hc_sym":     ParagraphStyle("hc_sym",    fontName="Courier",          fontSize=8.5, leading=12, textColor=C["text_mid"]),
+        "hc_res":     ParagraphStyle("hc_res",    fontName="Courier-Bold",     fontSize=9,   leading=12, textColor=C["text_dark"]),
+        "hc_lbl":     ParagraphStyle("hc_lbl",    fontName="Helvetica",        fontSize=7,   leading=10, textColor=C["text_light"]),
+        "hc_eq":      ParagraphStyle("hc_eq",     fontName="Helvetica",        fontSize=8.5, leading=12, textColor=C["text_light"]),
         "check_pass": ParagraphStyle("check_pass",fontName="Helvetica-Bold",   fontSize=8.5, leading=11, textColor=C["pass_text"]),
         "check_fail": ParagraphStyle("check_fail",fontName="Helvetica-Bold",   fontSize=8.5, leading=11, textColor=C["fail_text"]),
-        "th":         ParagraphStyle("th",        fontName="Helvetica-Bold",   fontSize=8,   leading=10, textColor=colors.white,    alignment=TA_CENTER),
-        "td":         ParagraphStyle("td",        fontName="Helvetica",        fontSize=8,   leading=10, textColor=C["text_main"]),
-        "mod_title":  ParagraphStyle("mod_title", fontName="Helvetica-Bold",   fontSize=10,  leading=13, textColor=colors.white),
-        "mod_sub":    ParagraphStyle("mod_sub",   fontName="Helvetica",        fontSize=7.5, leading=10, textColor=colors.white,    alignment=TA_RIGHT),
-        # ── new: free-text heading ────────────────────────────
-        "h1":         ParagraphStyle("h1",        fontName="Helvetica-Bold",   fontSize=11,  leading=15, textColor=C["green_dark"], spaceBefore=6, spaceAfter=3),
-        # ── TOC page display styles ───────────────────────────
+        "th":         ParagraphStyle("th",        fontName="Helvetica-Bold",   fontSize=8,   leading=10, textColor=C["text_dark"], alignment=TA_CENTER),
+        "td":         ParagraphStyle("td",        fontName="Helvetica",        fontSize=8,   leading=10, textColor=C["text_dark"]),
+        "mod_title":  ParagraphStyle("mod_title", fontName="Helvetica-Bold",   fontSize=10,  leading=13, textColor=C["text_dark"]),
+        "mod_sub":    ParagraphStyle("mod_sub",   fontName="Helvetica",        fontSize=7.5, leading=10, textColor=C["text_mid"],  alignment=TA_RIGHT),
+        # ── free-text heading ────────────────────────────────
+        "h1":         ParagraphStyle("h1",        fontName="Helvetica-Bold",   fontSize=11,  leading=15, textColor=C["text_dark"], spaceBefore=6, spaceAfter=3),
+        # ── TOC styles ───────────────────────────────────────
         "toc_heading": ParagraphStyle("toc_heading", fontName="Helvetica-Bold", fontSize=16, leading=20,
-                                      textColor=C["green_dark"], spaceBefore=0, spaceAfter=10),
+                                      textColor=C["text_dark"], spaceBefore=0, spaceAfter=10),
         "toc_entry_0": ParagraphStyle("toc_entry_0", fontName="Helvetica-Bold", fontSize=9.5, leading=16,
-                                      textColor=C["text_main"],  leftIndent=0),
+                                      textColor=C["text_dark"],  leftIndent=0),
         "toc_entry_1": ParagraphStyle("toc_entry_1", fontName="Helvetica-Bold", fontSize=8.5, leading=13,
-                                      textColor=C["text_muted"], leftIndent=6*mm),
+                                      textColor=C["text_mid"], leftIndent=6*mm),
         "toc_entry_2": ParagraphStyle("toc_entry_2", fontName="Helvetica",      fontSize=8,   leading=12,
-                                      textColor=C["text_muted"], leftIndent=14*mm),
+                                      textColor=C["text_mid"], leftIndent=14*mm),
     }
 
 
@@ -277,7 +283,6 @@ def make_styles():
 
 def _fmt(s):
     """Convert _sub / ^sup notation to ReportLab <sub>/<super> tags."""
-    # Wrap exponent text first so following subscript formatting also works inside powers.
     s = re.sub(r'\^\(([^)]+)\)', r'<super>\1</super>', s)
     s = re.sub(r'\^([^ <]+)', r'<super>\1</super>', s)
     s = re.sub(r'_([^ <]+)', r'<sub>\1</sub>', s)
@@ -328,18 +333,18 @@ def _render_hc_block(b, styles):
             cells.append(Paragraph(_fmt(result_part), styles["hc_res"]))
             widths.append(120*mm)
 
-        tbl = Table([cells], colWidths=widths, rowHeights=[7.5*mm])
+        tbl = Table([cells], colWidths=widths, rowHeights=[7*mm])
         tbl.setStyle(TableStyle([
-            ("BACKGROUND",   (0,0),(-1,-1), C["green_light"]),
-            ("LEFTPADDING",  (0,0),(-1,-1), 4),
-            ("RIGHTPADDING", (0,0),(-1,-1), 3),
-            ("TOPPADDING",   (0,0),(-1,-1), 1),
-            ("BOTTOMPADDING",(0,0),(-1,-1), 1),
-            ("VALIGN",       (0,0),(-1,-1), "MIDDLE"),
-            ("LINEBEFORE",   (0,0),(0,-1),  1.5, C["green_mid"]),
+            ("LEFTPADDING",   (0,0),(-1,-1), 4),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 3),
+            ("TOPPADDING",    (0,0),(-1,-1), 1),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 1),
+            ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+            # subtle bottom rule only — no background fill
+            ("LINEBELOW",     (0,0),(-1,-1), 0.3, C["rule_light"]),
         ]))
         rows_out.append(tbl)
-        rows_out.append(Spacer(1, 0.7*mm))
+        rows_out.append(Spacer(1, 0.5*mm))
 
     if b.get("label"):
         label_p = Paragraph(b["label"], styles["hc_lbl"])
@@ -357,12 +362,12 @@ def _draw_cover(canvas, doc, project):
     W, H = A4
     canvas.saveState()
 
-    # ── dark teal top band (~44 % of page height) ───────────
+    # dark top band (~44 % of page height)
     band_h = H * 0.44
-    canvas.setFillColor(C["green_dark"])
+    canvas.setFillColor(C["text_dark"])
     canvas.rect(0, H - band_h, W, band_h, fill=1, stroke=0)
 
-    # ── OMKREDS logo PNG (white bg masked out so it floats) ──
+    # OMKREDS logo PNG
     logo_w = 68 * mm
     logo_h = 34 * mm
     logo_x = W * 0.08
@@ -370,43 +375,43 @@ def _draw_cover(canvas, doc, project):
     canvas.drawImage(
         LOGO_PATH, logo_x, logo_y, width=logo_w, height=logo_h,
         preserveAspectRatio=True,
-        mask=[245, 255, 245, 255, 245, 255],  # treat near-white as transparent
+        mask=[245, 255, 245, 255, 245, 255],
     )
 
-    # ── firm name (white, centred) ───────────────────────────
+    # firm name
     canvas.setFillColor(colors.white)
     canvas.setFont("Helvetica", 11)
     canvas.drawCentredString(W / 2, H - band_h * 0.72, project["firm"])
 
-    # ── orange accent rule at band bottom ───────────────────
+    # orange accent rule at band bottom
     canvas.setStrokeColor(ORANGE)
     canvas.setLineWidth(1.8)
     canvas.line(15 * mm, H - band_h, W - 15 * mm, H - band_h)
 
-    # ── project name ────────────────────────────────────────
+    # project name
     canvas.setFillColor(ORANGE)
     canvas.setFont("Helvetica-Bold", 18)
     canvas.drawCentredString(W / 2, H - band_h - 28 * mm, project["project"])
 
-    # ── report title ─────────────────────────────────────────
-    canvas.setFillColor(C["text_main"])
+    # report title
+    canvas.setFillColor(C["text_dark"])
     canvas.setFont("Helvetica", 12)
     canvas.drawCentredString(W / 2, H - band_h - 43 * mm, project["title"])
 
-    # ── thin separator ───────────────────────────────────────
-    canvas.setStrokeColor(C["green_bdr"])
+    # thin separator
+    canvas.setStrokeColor(C["rule_light"])
     canvas.setLineWidth(0.5)
     canvas.line(35 * mm, H - band_h - 53 * mm, W - 35 * mm, H - band_h - 53 * mm)
 
-    # ── ref / revision ───────────────────────────────────────
-    canvas.setFillColor(C["text_muted"])
+    # ref / revision
+    canvas.setFillColor(C["text_mid"])
     canvas.setFont("Helvetica", 10)
     canvas.drawCentredString(
         W / 2, H - band_h - 64 * mm,
         f"{project['ref']}   ·   Rev {project['revision']}"
     )
 
-    # ── detail rows (engineer / checker / date) ──────────────
+    # detail rows
     detail_y   = H - band_h - 82 * mm
     col_label  = W / 2 - 48 * mm
     col_value  = W / 2 - 10 * mm
@@ -416,23 +421,23 @@ def _draw_cover(canvas, doc, project):
         ("Date:",     project["date"]),
     ]:
         canvas.setFont("Helvetica-Bold", 9)
-        canvas.setFillColor(C["text_muted"])
+        canvas.setFillColor(C["text_mid"])
         canvas.drawString(col_label, detail_y, label)
         canvas.setFont("Helvetica", 9)
-        canvas.setFillColor(C["text_main"])
+        canvas.setFillColor(C["text_dark"])
         canvas.drawString(col_value, detail_y, value)
         detail_y -= 9 * mm
 
-    # ── standards ────────────────────────────────────────────
+    # standards
     canvas.setFont("Helvetica", 8)
-    canvas.setFillColor(C["text_muted"])
+    canvas.setFillColor(C["text_mid"])
     canvas.drawCentredString(W / 2, detail_y - 8 * mm, project["standard"])
 
-    # ── bottom strip ─────────────────────────────────────────
+    # bottom strip
     strip_h = 14 * mm
     canvas.setFillColor(C["gray_light"])
     canvas.rect(0, 0, W, strip_h, fill=1, stroke=0)
-    canvas.setStrokeColor(C["green_bdr"])
+    canvas.setStrokeColor(C["rule_light"])
     canvas.setLineWidth(0.5)
     canvas.line(0, strip_h, W, strip_h)
     canvas.setFillColor(C["fail_text"])
@@ -450,55 +455,49 @@ def _draw_header_footer(canvas, doc, project):
     W, H = A4
     canvas.saveState()
 
-    # Top bar
-    bar_h = 14 * mm
-    canvas.setFillColor(C["green_dark"])
+    # Top bar — dark, slim
+    bar_h = 13 * mm
+    canvas.setFillColor(C["text_dark"])
     canvas.rect(0, H - bar_h, W, bar_h, fill=1, stroke=0)
 
-    # Logo PNG — white background masked out so it floats on the teal bar
+    # Logo
     ly = H - bar_h / 2
-    logo_h = bar_h * 0.80
+    logo_h = bar_h * 0.78
     logo_w = logo_h * 2.2
-    logo_x = 10 * mm
-    logo_y = ly - logo_h / 2
     canvas.drawImage(
-        LOGO_PATH, logo_x, logo_y, width=logo_w, height=logo_h,
+        LOGO_PATH, 10 * mm, ly - logo_h / 2, width=logo_w, height=logo_h,
         preserveAspectRatio=True,
         mask=[245, 255, 245, 255, 245, 255],
     )
 
-    # Right: ref + revision
+    # ref + page right-aligned in top bar
     canvas.setFillColor(colors.white)
     canvas.setFont("Helvetica", 7.5)
     canvas.drawRightString(W - 13 * mm, ly - 3,
-        f"{project['ref']}  ·  Rev {project['revision']}")
+        f"{project['ref']}  ·  Rev {project['revision']}  ·  p. {doc.page}")
 
-    # Sub-header strip
-    sub_h = 6.5 * mm
+    # Slim meta strip below bar
+    sub_h = 5.5 * mm
     canvas.setFillColor(C["gray_light"])
     canvas.rect(0, H - bar_h - sub_h, W, sub_h, fill=1, stroke=0)
-    canvas.setFillColor(C["text_muted"])
-    canvas.setFont("Helvetica", 6.5)
+    canvas.setFillColor(C["text_mid"])
+    canvas.setFont("Helvetica", 6)
     meta = (f"{project['project']}   ·   {project['title']}   ·   "
-            f"Eng: {project['engineer']}   ·   Chk: {project['checker']}   ·   "
-            f"{project['date']}   ·   {project['standard']}")
-    canvas.drawString(13 * mm, H - bar_h - sub_h + 1.8 * mm, meta)
+            f"Eng: {project['engineer']}   ·   Chk: {project['checker']}   ·   {project['date']}")
+    canvas.drawString(13 * mm, H - bar_h - sub_h + 1.6 * mm, meta)
 
-    # Footer
-    canvas.setStrokeColor(C["green_bdr"])
-    canvas.setLineWidth(0.5)
+    # Footer — single thin rule + text
+    canvas.setStrokeColor(C["rule_light"])
+    canvas.setLineWidth(0.4)
     canvas.line(13 * mm, 11 * mm, W - 13 * mm, 11 * mm)
-    canvas.setFillColor(C["text_muted"])
-    canvas.setFont("Helvetica", 7)
+    canvas.setFillColor(C["text_light"])
+    canvas.setFont("Helvetica", 6.5)
     canvas.drawString(13 * mm, 7 * mm, f"{project['firm']}  ·  {project['ref']}")
-    canvas.drawRightString(W - 13 * mm, 7 * mm,
-        f"Page {doc.page}  ·  PRELIMINARY — NOT FOR CONSTRUCTION")
+    canvas.drawRightString(W - 13 * mm, 7 * mm, "PRELIMINARY — NOT FOR CONSTRUCTION")
 
     canvas.restoreState()
 
 
-# keep make_page_template as an alias so existing module code that
-# imports it (if any) continues to work
 def make_page_template(project):
     def _draw(canvas, doc):
         _draw_header_footer(canvas, doc, project)
@@ -506,14 +505,13 @@ def make_page_template(project):
 
 
 # ─────────────────────────────────────────────────────────────
-# TOC ANCHOR — truly zero-size flowable for TOC registration
+# TOC ANCHOR
 # ─────────────────────────────────────────────────────────────
 
 from reportlab.platypus import Flowable as _Flowable
 
 class _TocAnchor(_Flowable):
-    """Zero-size flowable that registers a TOC entry when rendered.
-    Uses no space so it cannot cause layout instability between passes."""
+    """Zero-size flowable that registers a TOC entry when rendered."""
     def __init__(self, level, text):
         _Flowable.__init__(self)
         self.level = level
@@ -529,19 +527,10 @@ class _TocAnchor(_Flowable):
 
 
 # ─────────────────────────────────────────────────────────────
-# DOCUMENT TEMPLATE  (BaseDocTemplate + TOC support)
+# DOCUMENT TEMPLATE
 # ─────────────────────────────────────────────────────────────
 
 class StructuralDocTemplate(BaseDocTemplate):
-    """
-    Two-page-template document:
-      'cover'   — full-bleed cover artwork, no header/footer
-      'content' — standard OMKREDS header + footer on every page
-
-    afterFlowable watches for ghost 'toc_h0' / 'toc_h1' paragraphs
-    (zero visual height) to register entries with the TableOfContents.
-    """
-
     def __init__(self, filename, project, **kwargs):
         self.project = project
         BaseDocTemplate.__init__(self, filename, **kwargs)
@@ -573,7 +562,6 @@ class StructuralDocTemplate(BaseDocTemplate):
         ])
 
     def multiBuild(self, story, filename=None, canvasmaker=None, maxPasses=10):
-        """Two-pass build: pass 1 collects page numbers, pass 2 renders final PDF."""
         import copy
         from reportlab.pdfgen import canvas as _rl_canvas
         if canvasmaker is None:
@@ -582,14 +570,7 @@ class StructuralDocTemplate(BaseDocTemplate):
         for i in range(maxPasses):
             if toc:
                 toc.beforeBuild()
-            # Reset the bookmark counter so each pass emits toc_1, toc_2, …
-            # using the same keys that the TOC _lastEntries reference.
             self._toc_counter = 0
-            # build() consumes the list AND mutates Table/flowable internal state
-            # (cached row heights, column widths, split points) in-place.
-            # A shallow copy shares the same objects, so pass 2 sees stale state
-            # from pass 1 and can raise LayoutError.  deepcopy gives each pass a
-            # clean set of flowable objects.
             self.build(copy.deepcopy(story), canvasmaker=canvasmaker)
             if toc is None or toc.isSatisfied():
                 break
@@ -597,12 +578,10 @@ class StructuralDocTemplate(BaseDocTemplate):
             raise IndexError(f"TOC not resolved after {maxPasses} passes")
 
     def afterFlowable(self, flowable):
-        """Register module headers and section headings with the TOC."""
         if isinstance(flowable, _TocAnchor):
             self._toc_counter = getattr(self, '_toc_counter', 0) + 1
             key = f'toc_{self._toc_counter}'
             self.canv.bookmarkPage(key)
-            # Direct call — more reliable than self.notify() across multiBuild passes
             toc = getattr(self, '_toc', None)
             if toc is not None:
                 toc.addEntry(flowable.level, flowable.text, self.page, key)
@@ -620,8 +599,6 @@ def build_story(all_blocks, styles):
         # ── structural page blocks ────────────────────────────
 
         if t == "cover":
-            # Cover artwork is drawn by the page template's onPage callback.
-            # A tiny spacer ensures the cover frame is "used" before the break.
             story.append(Spacer(1, 0.001))
             story.append(NextPageTemplate('content'))
             story.append(PageBreak())
@@ -641,51 +618,55 @@ def build_story(all_blocks, styles):
             story.append(_TocAnchor(0, b["content"]))
             story.append(Spacer(1, 3 * mm))
             story.append(Paragraph(b["content"], styles["h1"]))
-            story.append(Spacer(1, 1 * mm))
+            story.append(HRFlowable(width="100%", thickness=0.8,
+                color=C["text_dark"], spaceAfter=2))
 
         # ── calc blocks ───────────────────────────────────────
 
         elif t == "module_header":
             story.append(_TocAnchor(1, b["title"]))
             accent = MATERIAL_COLORS.get(b["material"], MATERIAL_COLORS["general"])
+
+            # Minimal header: title left, subtitle right, colored bottom rule
             tbl = Table(
                 [[Paragraph(b["title"],    styles["mod_title"]),
                   Paragraph(b["subtitle"], styles["mod_sub"])]],
-                colWidths=[115*mm, 55*mm], rowHeights=[9*mm]
+                colWidths=[115*mm, 55*mm], rowHeights=[8.5*mm]
             )
             tbl.setStyle(TableStyle([
-                ("BACKGROUND",   (0,0),(-1,-1), accent),
-                ("LEFTPADDING",  (0,0),(-1,-1), 8),
-                ("RIGHTPADDING", (0,0),(-1,-1), 8),
-                ("TOPPADDING",   (0,0),(-1,-1), 0),
-                ("BOTTOMPADDING",(0,0),(-1,-1), 0),
-                ("VALIGN",       (0,0),(-1,-1), "MIDDLE"),
-                ("ALIGN",        (1,0),(1,0),   "RIGHT"),
+                ("LEFTPADDING",   (0,0),(-1,-1), 2),
+                ("RIGHTPADDING",  (0,0),(-1,-1), 2),
+                ("TOPPADDING",    (0,0),(-1,-1), 0),
+                ("BOTTOMPADDING", (0,0),(-1,-1), 0),
+                ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+                ("ALIGN",         (1,0),(1,0),   "RIGHT"),
+                # Colored bottom rule replaces the fill
+                ("LINEBELOW",     (0,0),(-1,-1), 1.5, accent),
             ]))
-            story.append(Spacer(1, 4*mm))
+            story.append(Spacer(1, 5*mm))
             story.append(tbl)
-            story.append(Spacer(1, 2*mm))
+            story.append(Spacer(1, 2.5*mm))
 
         elif t == "section":
             story.append(_TocAnchor(2, b["content"]))
             story.append(Spacer(1, 2*mm))
-            story.append(HRFlowable(width="100%", thickness=0.4,
-                color=C["green_bdr"], spaceAfter=1))
-            story.append(Paragraph(b["content"], styles["section"]))
+            story.append(Paragraph(b["content"].upper(), styles["section"]))
+            story.append(HRFlowable(width="100%", thickness=0.3,
+                color=C["rule_mid"], spaceAfter=1.5))
 
         elif t == "text":
             story.append(Paragraph(b["content"], styles["normal"]))
 
         elif t == "note":
-            tbl = Table([[Paragraph("Note: " + b["content"], styles["note"])]],
+            # Left-rule only — no filled box
+            tbl = Table([[Paragraph(b["content"], styles["note"])]],
                         colWidths=[170*mm])
             tbl.setStyle(TableStyle([
-                ("BACKGROUND",   (0,0),(-1,-1), C["amber_bg"]),
-                ("BOX",          (0,0),(-1,-1), 0.5, C["amber_bdr"]),
-                ("LEFTPADDING",  (0,0),(-1,-1), 6),
+                ("LINEBEFORE",   (0,0),(0,-1), 2.5, C["orange"]),
+                ("LEFTPADDING",  (0,0),(-1,-1), 8),
                 ("RIGHTPADDING", (0,0),(-1,-1), 6),
-                ("TOPPADDING",   (0,0),(-1,-1), 4),
-                ("BOTTOMPADDING",(0,0),(-1,-1), 4),
+                ("TOPPADDING",   (0,0),(-1,-1), 3),
+                ("BOTTOMPADDING",(0,0),(-1,-1), 3),
             ]))
             story.append(KeepTogether([tbl, Spacer(1, 1.5*mm)]))
 
@@ -711,36 +692,35 @@ def build_story(all_blocks, styles):
                           Paragraph(_fmt(result),   styles["hc_res"])]
                 widths = [26*mm, 4*mm, 120*mm]
 
-            tbl = Table([cells], colWidths=widths, rowHeights=[7.5*mm])
+            tbl = Table([cells], colWidths=widths, rowHeights=[7*mm])
             tbl.setStyle(TableStyle([
-                ("BACKGROUND",   (0,0),(-1,-1), C["green_light"]),
-                ("LEFTPADDING",  (0,0),(-1,-1), 4),
-                ("RIGHTPADDING", (0,0),(-1,-1), 3),
-                ("TOPPADDING",   (0,0),(-1,-1), 1),
-                ("BOTTOMPADDING",(0,0),(-1,-1), 1),
-                ("VALIGN",       (0,0),(-1,-1), "MIDDLE"),
-                ("LINEBEFORE",   (0,0),(0,-1),  1.5, C["green_mid"]),
+                ("LEFTPADDING",   (0,0),(-1,-1), 4),
+                ("RIGHTPADDING",  (0,0),(-1,-1), 3),
+                ("TOPPADDING",    (0,0),(-1,-1), 1),
+                ("BOTTOMPADDING", (0,0),(-1,-1), 1),
+                ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+                # No fill — just a thin bottom rule
+                ("LINEBELOW",     (0,0),(-1,-1), 0.3, C["rule_light"]),
             ]))
             if lbl:
                 story.append(Paragraph(lbl, styles["hc_lbl"]))
                 story.append(Spacer(1, 0.5*mm))
             story.append(tbl)
-            story.append(Spacer(1, 0.7*mm))
+            story.append(Spacer(1, 0.5*mm))
 
         elif t == "check":
-            bg     = C["pass_bg"]   if b["passes"] else C["fail_bg"]
-            bdr    = C["pass_bdr"]  if b["passes"] else C["fail_bdr"]
+            accent = C["pass_text"]   if b["passes"] else C["fail_text"]
             sty    = styles["check_pass"] if b["passes"] else styles["check_fail"]
-            accent = C["green_mid"] if b["passes"] else C["fail_text"]
+
+            # No background fill — left accent rule + thin bottom line
             tbl = Table(
                 [[Paragraph(b["label"], styles["normal"]),
                   Paragraph(b["value"], sty)]],
                 colWidths=[130*mm, 40*mm], rowHeights=[7.5*mm]
             )
             tbl.setStyle(TableStyle([
-                ("BACKGROUND",   (0,0),(-1,-1), bg),
-                ("BOX",          (0,0),(-1,-1), 0.5, bdr),
-                ("LINEBEFORE",   (0,0),(0,-1),  2,   accent),
+                ("LINEBEFORE",   (0,0),(0,-1), 2,   accent),
+                ("LINEBELOW",    (0,0),(-1,-1), 0.3, C["rule_light"]),
                 ("LEFTPADDING",  (0,0),(-1,-1), 6),
                 ("RIGHTPADDING", (0,0),(-1,-1), 6),
                 ("TOPPADDING",   (0,0),(-1,-1), 2),
@@ -748,7 +728,7 @@ def build_story(all_blocks, styles):
                 ("ALIGN",  (1,0),(1,0), "RIGHT"),
                 ("VALIGN", (0,0),(-1,-1), "MIDDLE"),
             ]))
-            story.append(KeepTogether([tbl, Spacer(1, 1.5*mm)]))
+            story.append(KeepTogether([tbl, Spacer(1, 1*mm)]))
 
         elif t == "table":
             rows = [[Paragraph(h, styles["th"]) for h in b["headers"]]]
@@ -757,9 +737,13 @@ def build_story(all_blocks, styles):
             cw = 170*mm / len(b["headers"])
             tbl = Table(rows, colWidths=[cw]*len(b["headers"]))
             tbl.setStyle(TableStyle([
-                ("BACKGROUND",     (0,0),(-1,0),  C["green_dark"]),
-                ("ROWBACKGROUNDS", (0,1),(-1,-1), [colors.white, C["gray_light"]]),
-                ("GRID",           (0,0),(-1,-1), 0.4, C["gray_mid"]),
+                # Header: no fill — just thick bottom rule + bold text
+                ("LINEBELOW",      (0,0),(-1,0),  1.0, C["text_dark"]),
+                # Data rows: alternating very-light tint
+                ("ROWBACKGROUNDS", (0,1),(-1,-1),
+                    [colors.white, colors.HexColor("#F5F5F5")]),
+                # Light grid lines (horizontal only)
+                ("LINEBELOW",      (0,1),(-1,-1), 0.3, C["rule_light"]),
                 ("LEFTPADDING",    (0,0),(-1,-1), 5),
                 ("RIGHTPADDING",   (0,0),(-1,-1), 5),
                 ("TOPPADDING",     (0,0),(-1,-1), 3),
@@ -802,8 +786,6 @@ def generate_pdf(project, all_blocks, output_path="structural_report.pdf"):
     )
     styles = make_styles()
     story  = build_story(all_blocks, styles)
-    # Give the doc template a direct reference to the TOC flowable so
-    # afterFlowable can call toc.addEntry() reliably across multiBuild passes.
     doc._toc = next((fl for fl in story if isinstance(fl, TableOfContents)), None)
     doc.multiBuild(story)
     print(f"PDF saved: {output_path}")
