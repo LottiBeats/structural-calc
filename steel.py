@@ -1,4 +1,4 @@
-"""
+﻿"""
 steel.py - Steel beam module (EN 1993-1-1)
 Unit-aware with forallpeople. No manual conversions.
 
@@ -200,16 +200,15 @@ def steel_beam_ipe(
 
         @handcalc(override="long", precision=3)
         def _Mcr(C1, l_cr_ltb, E_s, G_s, I_z, I_w, I_t):
-            M_cr = (
-                C1 * (pi**2 * E_s * I_z / l_cr_ltb**2)
-                * (I_w / I_z + l_cr_ltb**2 * G_s * I_t / (pi**2 * E_s * I_z))**0.5
-            )
-            return M_cr
+            N_Ez = pi * pi * E_s * I_z / l_cr_ltb**2
+            W_LT = (I_w/I_z + l_cr_ltb**2 * G_s * I_t / (pi * pi * E_s * I_z))**0.5
+            M_cr = C1 * N_Ez * W_LT
+            return N_Ez, W_LT, M_cr
 
-        latex, M_cr = _Mcr(C1, l_cr_ltb, E_s, G_s, I_z, I_w, I_t)
+        latex, (N_Ez, W_LT, M_cr) = _Mcr(C1, l_cr_ltb, E_s, G_s, I_z, I_w, I_t)
         blocks.append(hc_block(
             latex,
-            "Elastic critical moment M_cr  (fork end conditions — simply supported)"
+            "Elastic critical moment M_cr — N_Ez = pi2*EI_z/L_cr2, W_LT = sqrt(I_w/I_z + L_cr2*G*I_t/pi2*EI_z)"
         ))
 
         @handcalc(override="long", precision=3)
@@ -303,3 +302,4 @@ def steel_beam_ipe(
         ))
 
     return blocks
+
