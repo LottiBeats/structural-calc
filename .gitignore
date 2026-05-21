@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Generated PDFs (keep templates, ignore generated reports)
+structural_report.pdf
+template_report.pdf
+timber_beam_column_report.pdf
+timber_beam_column_holst_report.pdf
+steel_custom_a222_holst_report.pdf
+glulam_column_report.pdf
+
+# Rendered images (can be regenerated)
+rendered/
+
+# Local env
+.env
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db

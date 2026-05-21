@@ -1,0 +1,12 @@
+[server]
+headless        = true       # required for all cloud platforms
+enableCORS      = false
+enableXsrfProtection = false
+
+[theme]
+base            = "light"
+primaryColor    = "#111111"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f7f7f7"
+textColor       = "#111111"
+font            = "sans serif"
