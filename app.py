@@ -69,13 +69,13 @@ UNIT_CHOICES = [
 UNIT_LABELS = {
     "-":"—","m":"m","mm":"mm","cm":"cm",
     "kN":"kN","N":"N","MN":"MN",
-    "kN/m":"kN/m","N/m":"N/m","kN/m**2":"kN/mÂ²",
+    "kN/m":"kN/m","N/m":"N/m","kN/m**2":"kN/m²",
     "MPa":"MPa","GPa":"GPa","kPa":"kPa",
-    "kN*m":"kNÂ·m","N*m":"NÂ·m",
-    "mm**2":"mmÂ²","cm**2":"cmÂ²","m**2":"mÂ²",
-    "mm**3":"mmÂ³","cm**3":"cmÂ³",
-    "mm**4":"mmâ´","cm**4":"cmâ´",
-    "kg":"kg","kN/m**3":"kN/mÂ³",
+    "kN*m":"kN·m","N*m":"N·m",
+    "mm**2":"mm²","cm**2":"cm²","m**2":"m²",
+    "mm**3":"mm³","cm**3":"cm³",
+    "mm**4":"mm⁴","cm**4":"cm⁴",
+    "kg":"kg","kN/m**3":"kN/m³",
 }
 
 BLOCK_MENU = {
@@ -338,7 +338,7 @@ def _run_fem(data: dict):
     Returns (summary_dict, beam_object) or raises on error."""
     span   = float(data["span_m"])
     E      = float(data["E_mpa"]) * 1e6       # Pa
-    I      = float(data["I_cm4"]) * 1e-8      # mâ´  (cmâ´ â†’ mâ´)
+    I      = float(data["I_cm4"]) * 1e-8      # m⁴  (cm⁴ → m⁴)
     n_el   = max(20, int(data.get("n_elements", 100)))
 
     beam = BeamFEM(length=span, E=E, I=I, n_elements=n_el)
@@ -376,7 +376,7 @@ def _run_fem(data: dict):
 
 
 def _fem_plot_bytes(beam: BeamFEM, title: str = "") -> bytes:
-    """Render FEM results as a 4-panel PNG (beam layout + Î´ + M + V) and return bytes."""
+    """Render FEM results as a 4-panel PNG (beam layout + δ + M + V) and return bytes."""
     import matplotlib.gridspec as gridspec
     x      = beam.x_fine
     v_mm   = beam.v_fine * 1e3
@@ -400,7 +400,7 @@ def _fem_plot_bytes(beam: BeamFEM, title: str = "") -> bytes:
 
     panels = [
         (ax1, v_mm,  "Displacement  [mm]",     "#2d6a9f"),
-        (ax2, M_kNm, "Bending moment  [kNÂ·m]", "#b03030"),
+        (ax2, M_kNm, "Bending moment  [kN·m]", "#b03030"),
         (ax3, V_kN,  "Shear force  [kN]",      "#2a7a4b"),
     ]
     for ax, ydata, ylabel, col in panels:
@@ -565,7 +565,7 @@ def evaluate_custom_calc(var_rows, formula_rows):
             # Clean formula string for display (keep it readable)
             formula_disp = (rhs
                 .replace("**", "^")
-                .replace("*", " Ã— ")
+                .replace("*", " × ")
                 .replace("/", " / ")
                 .replace("  ", " ")
             )
@@ -613,7 +613,7 @@ def custom_calc_to_blocks(data: dict) -> list:
 
 
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-# BLOCK â†’ REPORT CONVERTER
+# BLOCK → REPORT CONVERTER
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 def block_to_report(block: dict, fem_results: dict = None) -> list:
@@ -658,8 +658,8 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
             blocks_out += [
                 T(f"Simply-supported beam FEM analysis. "
                   f"Span {d['span_m']} m, "
-                  f"EI = {d['E_mpa']*d['I_cm4']*1e-2:.0f} kNÂ·mÂ²."),
-                CALC_ROW("M_Ed", "", f"{M_kNm:.3f} kNÂ·m"),
+                  f"EI = {d['E_mpa']*d['I_cm4']*1e-2:.0f} kN·m²."),
+                CALC_ROW("M_Ed", "", f"{M_kNm:.3f} kN·m"),
                 CALC_ROW("V_Ed", "", f"{V_kN:.3f} kN"),
                 CALC_ROW("delta_max", "", f"{d_mm:.3f} mm"),
                 FIG(tmp_path, caption=f"FEM results — {d.get('label','')}"),
@@ -746,11 +746,11 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
         sec  = db[key]
 
         # Section properties come from catalog — not user-editable
-        W_ply = sec["Wply_cm3"] * mm**3 * 1e3   # cmÂ³ â†’ mmÂ³ â†’ Physical (mmÂ³)
+        W_ply = sec["Wply_cm3"] * mm**3 * 1e3   # cm³ → mm³ → Physical (mm³)
         h     = sec["h_mm"]     * mm
         t_w   = sec["tw_mm"]    * mm
 
-        # Steel grade â†’ f_y
+        # Steel grade → f_y
         GRADE_FY = {"S235": 235, "S275": 275, "S355": 355, "S420": 420, "S460": 460}
         grade     = d.get("grade", "S355")
         f_y_mpa   = GRADE_FY.get(grade, 355)
@@ -1010,14 +1010,14 @@ def edit_timber_beam_column(block):
     d["b_mm"]     = c1.number_input("b [mm]",      value=d["b_mm"],     min_value=10.0, key=_uid(block,"b"))
     d["h_mm"]     = c2.number_input("h [mm]",      value=d["h_mm"],     min_value=10.0, key=_uid(block,"h"))
     d["length_m"] = c3.number_input("Length [m]",  value=d["length_m"], min_value=0.1,  key=_uid(block,"len"))
-    d["gamma_M"]  = c4.number_input("Î³_M",         value=d["gamma_M"],  min_value=1.0,  key=_uid(block,"gM"))
+    d["gamma_M"]  = c4.number_input("γ_M",         value=d["gamma_M"],  min_value=1.0,  key=_uid(block,"gM"))
 
     c1, c2, c3 = st.columns(3)
     d["load_duration"] = c1.selectbox("Load duration", LOAD_DURATIONS,
                                       index=LOAD_DURATIONS.index(d["load_duration"]),
                                       key=_uid(block,"ld"))
     d["N_Ed_kN"]  = c2.number_input("N_Ed [kN]",   value=d["N_Ed_kN"],   key=_uid(block,"N"))
-    d["M_Ed_kNm"] = c3.number_input("M_Ed [kNÂ·m]", value=d["M_Ed_kNm"],  key=_uid(block,"M"))
+    d["M_Ed_kNm"] = c3.number_input("M_Ed [kN·m]", value=d["M_Ed_kNm"],  key=_uid(block,"M"))
 
     c1, c2, c3, c4 = st.columns(4)
     d["eff_len"]   = c1.number_input("Eff. length factor", value=d["eff_len"], min_value=0.1, key=_uid(block,"ef"))
@@ -1045,7 +1045,7 @@ def edit_timber_beam(block):
     d["b_mm"]    = c1.number_input("b [mm]",   value=d["b_mm"],    min_value=10.0, key=_uid(block,"b"))
     d["h_mm"]    = c2.number_input("h [mm]",   value=d["h_mm"],    min_value=10.0, key=_uid(block,"h"))
     d["span_m"]  = c3.number_input("Span [m]", value=d["span_m"],  min_value=0.1,  key=_uid(block,"span"))
-    d["gamma_M"] = c4.number_input("Î³_M",      value=d["gamma_M"], min_value=1.0,  key=_uid(block,"gM"))
+    d["gamma_M"] = c4.number_input("γ_M",      value=d["gamma_M"], min_value=1.0,  key=_uid(block,"gM"))
 
     d["load_duration"] = st.selectbox("Load duration", LOAD_DURATIONS,
                                       index=LOAD_DURATIONS.index(d["load_duration"]),
@@ -1064,7 +1064,7 @@ def edit_timber_beam(block):
 
     if d["input_mode"] == "direct":
         c1, c2 = st.columns(2)
-        d["M_Ed_kNm"] = c1.number_input("M_Ed [kNÂ·m]", value=d.get("M_Ed_kNm",0.0), key=_uid(block,"MEd"))
+        d["M_Ed_kNm"] = c1.number_input("M_Ed [kN·m]", value=d.get("M_Ed_kNm",0.0), key=_uid(block,"MEd"))
         d["V_Ed_kN"]  = c2.number_input("V_Ed [kN]",   value=d.get("V_Ed_kN",0.0),  key=_uid(block,"VEd"))
     elif d["input_mode"] == "characteristic":
         c1, c2 = st.columns(2)
@@ -1084,9 +1084,9 @@ def edit_timber_beam(block):
             if fem_blk and fem_blk["data"].get("res_M_Ed_kNm") is not None:
                 fd = fem_blk["data"]
                 fc1, fc2, fc3 = st.columns(3)
-                fc1.metric("M_Ed", f"{fd['res_M_Ed_kNm']:.3f} kNÂ·m")
+                fc1.metric("M_Ed", f"{fd['res_M_Ed_kNm']:.3f} kN·m")
                 fc2.metric("V_Ed", f"{fd['res_V_Ed_kN']:.3f} kN")
-                fc3.metric("Î´_max", f"{fd['res_delta_mm']:.3f} mm")
+                fc3.metric("δ_max", f"{fd['res_delta_mm']:.3f} mm")
         else:
             st.info("Add a FEM beam block first.")
 
@@ -1106,7 +1106,7 @@ def edit_steel_beam(block):
     d["grade"]   = c2.selectbox("Steel grade", grade_keys,
                                  index=grade_keys.index(cur_grade),
                                  key=_uid(block,"grade"))
-    d["gamma_M0"] = c3.number_input("Î³_M0", value=float(d.get("gamma_M0", 1.0)),
+    d["gamma_M0"] = c3.number_input("γ_M0", value=float(d.get("gamma_M0", 1.0)),
                                      min_value=0.5, max_value=2.0,
                                      key=_uid(block,"gM0"))
 
@@ -1135,22 +1135,22 @@ def edit_steel_beam(block):
     # Show section properties from catalog (read-only)
     _fs2.markdown(
         f"<div style='font-size:11px; color:#666; padding-top:6px;'>"
-        f"h = {sec['h_mm']:.0f} mm &nbsp;Â·&nbsp; "
+        f"h = {sec['h_mm']:.0f} mm &nbsp;·&nbsp; "
         f"b = {sec['b_mm']:.0f} mm<br>"
-        f"t<sub>w</sub> = {sec['tw_mm']:.1f} mm &nbsp;Â·&nbsp; "
+        f"t<sub>w</sub> = {sec['tw_mm']:.1f} mm &nbsp;·&nbsp; "
         f"t<sub>f</sub> = {sec['tf_mm']:.1f} mm<br>"
-        f"W<sub>pl,y</sub> = <b>{sec['Wply_cm3']:.0f} cmÂ³</b> &nbsp;Â·&nbsp; "
-        f"I<sub>y</sub> = {sec['Iy_cm4']:.0f} cmâ´"
+        f"W<sub>pl,y</sub> = <b>{sec['Wply_cm3']:.0f} cm³</b> &nbsp;·&nbsp; "
+        f"I<sub>y</sub> = {sec['Iy_cm4']:.0f} cm⁴"
         f"</div>",
         unsafe_allow_html=True,
     )
 
     f_y_mpa = GRADES[d["grade"]]
-    M_Rd_kNm = sec["Wply_cm3"] * 1e-6 * f_y_mpa * 1e3 / d["gamma_M0"]  # kNÂ·m
+    M_Rd_kNm = sec["Wply_cm3"] * 1e-6 * f_y_mpa * 1e3 / d["gamma_M0"]  # kN·m
     st.caption(
-        f"f_y = {f_y_mpa} MPa  Â·  "
-        f"M_Rd = W_pl,y Ã— f_y / Î³_M0 = "
-        f"{sec['Wply_cm3']:.0f} cmÂ³ Ã— {f_y_mpa} MPa = **{M_Rd_kNm:.1f} kNÂ·m**"
+        f"f_y = {f_y_mpa} MPa  ·  "
+        f"M_Rd = W_pl,y × f_y / γ_M0 = "
+        f"{sec['Wply_cm3']:.0f} cm³ × {f_y_mpa} MPa = **{M_Rd_kNm:.1f} kN·m**"
     )
 
     # â"€â"€ Span â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -1169,7 +1169,7 @@ def edit_steel_beam(block):
         "Restrained — LTB",
         value=bool(d.get("ltb_restrained", False)),
         key=_uid(block, "ltbr"),
-        help="Bottom (compression) flange restrained against lateral displacement â†’ Ï‡_LT = 1.0",
+        help="Bottom (compression) flange restrained against lateral displacement → χ_LT = 1.0",
     )
     d["buck_y_restrained"] = rc2.checkbox(
         "Restrained — y-axis",
@@ -1199,20 +1199,20 @@ def edit_steel_beam(block):
                 help="Effective LTB length = span between lateral restraints to compression flange",
             )
             d["C1_ltb"] = lt2.number_input(
-                "Câ‚ factor",
+                "C₁ factor",
                 value=float(d.get("C1_ltb", 1.0)),
                 min_value=0.5, max_value=2.5, step=0.01,
                 key=_uid(block, "C1ltb"),
                 help=(
                     "Equivalent uniform moment factor:\n"
                     "1.00 = uniform moment (conservative)\n"
-                    "1.13 â‰ˆ triangular moment\n"
-                    "1.29 â‰ˆ parabolic / UDL mid-span\n"
+                    "1.13 ≈ triangular moment\n"
+                    "1.29 ≈ parabolic / UDL mid-span\n"
                     "1.77 = single end moment"
                 ),
             )
             d["gamma_M1"] = lt3.number_input(
-                "Î³_M1",
+                "γ_M1",
                 value=float(d.get("gamma_M1", 1.0)),
                 min_value=0.5, max_value=2.0,
                 key=_uid(block, "gM1"),
@@ -1227,21 +1227,21 @@ def edit_steel_beam(block):
             _h   = sec["h_mm"]
             _tw  = sec["tw_mm"]
             _tf  = sec["tf_mm"]
-            _Wpl = sec["Wply_cm3"] * 1e3   # cmÂ³ â†’ mmÂ³
+            _Wpl = sec["Wply_cm3"] * 1e3   # cm³ → mm³
             _fy  = {"S235":235,"S275":275,"S355":355,"S420":420,"S460":460}.get(d.get("grade","S355"),355)
             _gM1 = d["gamma_M1"]
             try:
-                _Iz  = (_tf*_b**3/6 + (_h-2*_tf)*_tw**3/12) * 1e-8    # mmâ´ â†’ cmâ´
-                _Iw  = (_b**3*_tf*(_h-_tf)**2/24) * 1e-12              # mmâ¶ â†’ mâ¶ ... keep in mmâ¶ for now
-                _It  = ((2*_b*_tf**3+(_h-2*_tf)*_tw**3)/3) * 1e-8     # mmâ´ â†’ cmâ´
+                _Iz  = (_tf*_b**3/6 + (_h-2*_tf)*_tw**3/12) * 1e-8    # mm⁴ → cm⁴
+                _Iw  = (_b**3*_tf*(_h-_tf)**2/24) * 1e-12              # mm⁶ → m⁶ ... keep in mm⁶ for now
+                _It  = ((2*_b*_tf**3+(_h-2*_tf)*_tw**3)/3) * 1e-8     # mm⁴ → cm⁴
                 import math as _m
                 _Lcr_mm = _lcr * 1e3
-                _EIz    = _E * _Iz * 1e-8 * 1e6   # MPa Ã— cmâ´ â†’ NÂ·mmÂ²... easier in SI
+                _EIz    = _E * _Iz * 1e-8 * 1e6   # MPa × cm⁴ → N·mm²... easier in SI
                 # work in N and mm
-                _EIz_mm  = _E * (_Iz * 1e4)          # N/mmÂ² Ã— mmâ´
-                _GIt_mm  = _G * (_It * 1e4)          # N/mmÂ² Ã— mmâ´
-                _Iw_mm   = _b**3*_tf*(_h-_tf)**2/24  # mmâ¶
-                _Iz_mm   = _tf*_b**3/6+(_h-2*_tf)*_tw**3/12  # mmâ´
+                _EIz_mm  = _E * (_Iz * 1e4)          # N/mm² × mm⁴
+                _GIt_mm  = _G * (_It * 1e4)          # N/mm² × mm⁴
+                _Iw_mm   = _b**3*_tf*(_h-_tf)**2/24  # mm⁶
+                _Iz_mm   = _tf*_b**3/6+(_h-2*_tf)*_tw**3/12  # mm⁴
                 _Mcr_Nmm = (_C1 * (_m.pi**2*_EIz_mm/_Lcr_mm**2)
                            * (_m.sqrt(_Iw_mm/_Iz_mm + _Lcr_mm**2*_GIt_mm/(_m.pi**2*_EIz_mm))))
                 _Mcr_kNm = _Mcr_Nmm * 1e-6
@@ -1257,17 +1257,17 @@ def edit_steel_beam(block):
                 _col = "#2a7a4b" if _lbar <= 0.2 else ("#f0a500" if _lbar <= 1.0 else "#b03030")
                 st.markdown(
                     f"<p style='font-size:12px; color:{_col};'>"
-                    f"M_cr = {_Mcr_kNm:.1f} kNÂ·m  Â·  "
-                    f"Î»Ì„_LT = {_lbar:.3f}  Â·  "
-                    f"Ï‡_LT = {_chi:.3f}  Â·  "
-                    f"<b>M_b,Rd = {_Mb_kNm:.1f} kNÂ·m</b></p>",
+                    f"M_cr = {_Mcr_kNm:.1f} kN·m  ·  "
+                    f"λ̄_LT = {_lbar:.3f}  ·  "
+                    f"χ_LT = {_chi:.3f}  ·  "
+                    f"<b>M_b,Rd = {_Mb_kNm:.1f} kN·m</b></p>",
                     unsafe_allow_html=True,
                 )
             except Exception:
                 pass
         else:
             st.caption(
-                "â„¹ï¸ LTB calculation is available for IPE / HEA / HEB sections. "
+                "ℹ️ LTB calculation is available for IPE / HEA / HEB sections. "
                 "For L-profiles, check LTB using specialist tables or software."
             )
 
@@ -1285,7 +1285,7 @@ def edit_steel_beam(block):
 
     if d["input_mode"] == "direct":
         c1, c2 = st.columns(2)
-        d["M_Ed_kNm"] = c1.number_input("M_Ed [kNÂ·m]", value=float(d.get("M_Ed_kNm",0.0)),
+        d["M_Ed_kNm"] = c1.number_input("M_Ed [kN·m]", value=float(d.get("M_Ed_kNm",0.0)),
                                          key=_uid(block,"MEd"))
         d["V_Ed_kN"]  = c2.number_input("V_Ed [kN]",   value=float(d.get("V_Ed_kN",0.0)),
                                          key=_uid(block,"VEd"))
@@ -1296,7 +1296,7 @@ def edit_steel_beam(block):
             st.markdown(
                 f"<p style='font-size:12px; color:{color};'>"
                 f"M_Ed / M_Rd = {d['M_Ed_kNm']:.2f} / {M_Rd_kNm:.1f} = "
-                f"<b>{ratio:.3f}</b> {'âœ“ OK' if ratio <= 1.0 else 'âœ— FAIL'}</p>",
+                f"<b>{ratio:.3f}</b> {'✓ OK' if ratio <= 1.0 else '✗ FAIL'}</p>",
                 unsafe_allow_html=True,
             )
     elif d["input_mode"] == "characteristic":
@@ -1311,13 +1311,13 @@ def edit_steel_beam(block):
         ratio = M_Ed_prev / M_Rd_kNm
         color = "#2a7a4b" if ratio <= 1.0 else "#b03030"
         st.caption(
-            f"w_Ed = {w_Ed:.2f} kN/m  Â·  "
-            f"M_Ed = {M_Ed_prev:.1f} kNÂ·m  Â·  "
+            f"w_Ed = {w_Ed:.2f} kN/m  ·  "
+            f"M_Ed = {M_Ed_prev:.1f} kN·m  ·  "
             f"M_Ed / M_Rd = "
         )
         st.markdown(
             f"<p style='font-size:12px; color:{color}; margin-top:-8px;'>"
-            f"<b>{ratio:.3f}  {'âœ“ OK' if ratio <= 1.0 else 'âœ— FAIL'}</b></p>",
+            f"<b>{ratio:.3f}  {'✓ OK' if ratio <= 1.0 else '✗ FAIL'}</b></p>",
             unsafe_allow_html=True,
         )
     else:  # fem
@@ -1333,16 +1333,16 @@ def edit_steel_beam(block):
             if fem_blk and fem_blk["data"].get("res_M_Ed_kNm") is not None:
                 fd = fem_blk["data"]
                 fc1, fc2, fc3 = st.columns(3)
-                fc1.metric("M_Ed", f"{fd['res_M_Ed_kNm']:.3f} kNÂ·m")
+                fc1.metric("M_Ed", f"{fd['res_M_Ed_kNm']:.3f} kN·m")
                 fc2.metric("V_Ed", f"{fd['res_V_Ed_kN']:.3f} kN")
-                fc3.metric("Î´_max", f"{fd['res_delta_mm']:.3f} mm")
+                fc3.metric("δ_max", f"{fd['res_delta_mm']:.3f} mm")
                 # Live check preview from FEM
                 ratio = fd["res_M_Ed_kNm"] / M_Rd_kNm
                 color = "#2a7a4b" if ratio <= 1.0 else "#b03030"
                 st.markdown(
                     f"<p style='font-size:12px; color:{color};'>"
                     f"M_Ed / M_Rd = {fd['res_M_Ed_kNm']:.2f} / {M_Rd_kNm:.1f} = "
-                    f"<b>{ratio:.3f}</b> {'âœ“ OK' if ratio <= 1.0 else 'âœ— FAIL'}</p>",
+                    f"<b>{ratio:.3f}</b> {'✓ OK' if ratio <= 1.0 else '✗ FAIL'}</p>",
                     unsafe_allow_html=True,
                 )
         else:
@@ -1362,7 +1362,7 @@ def edit_concrete_beam(block):
     c1, c2, c3 = st.columns(3)
     d["f_ck_mpa"]    = c1.number_input("f_ck [MPa]",    value=d["f_ck_mpa"],    key=_uid(block,"fck"))
     d["f_yk_mpa"]    = c2.number_input("f_yk [MPa]",    value=d["f_yk_mpa"],    key=_uid(block,"fyk"))
-    d["As_prov_mm2"] = c3.number_input("As,prov [mmÂ²]", value=d["As_prov_mm2"], key=_uid(block,"As"))
+    d["As_prov_mm2"] = c3.number_input("As,prov [mm²]", value=d["As_prov_mm2"], key=_uid(block,"As"))
 
     action_mode = st.radio("Load input method",
                            ["Direct design actions (M_Ed, V_Ed)",
@@ -1372,7 +1372,7 @@ def edit_concrete_beam(block):
 
     if d["direct"]:
         c1, c2 = st.columns(2)
-        d["M_Ed_kNm"] = c1.number_input("M_Ed [kNÂ·m]", value=d.get("M_Ed_kNm",0.0), key=_uid(block,"MEd"))
+        d["M_Ed_kNm"] = c1.number_input("M_Ed [kN·m]", value=d.get("M_Ed_kNm",0.0), key=_uid(block,"MEd"))
         d["V_Ed_kN"]  = c2.number_input("V_Ed [kN]",   value=d.get("V_Ed_kN",0.0),  key=_uid(block,"VEd"))
     else:
         c1, c2 = st.columns(2)
@@ -1468,7 +1468,7 @@ def edit_masonry_wall(block):
     d = block["data"]
     c1, c2 = st.columns(2)
     d["label"]      = c1.text_input("Label", d["label"], key=_uid(block,"label"))
-    d["gamma_M"]    = c2.number_input("Î³_M", value=d["gamma_M"], min_value=1.0, key=_uid(block,"gM"))
+    d["gamma_M"]    = c2.number_input("γ_M", value=d["gamma_M"], min_value=1.0, key=_uid(block,"gM"))
 
     c1, c2, c3 = st.columns(3)
     d["height_m"]      = c1.number_input("Height [m]",       value=d["height_m"],      min_value=0.1, key=_uid(block,"ht"))
@@ -1499,7 +1499,7 @@ def edit_custom_calc(block):
                               index=UNIT_CHOICES.index(var.get("unit","-")),
                               key=_uid(block,f"vu{vi}"), label_visibility="collapsed",
                               format_func=lambda u: UNIT_LABELS.get(u, u))
-        keep  = not vc4.button("âœ•", key=_uid(block,f"vdel{vi}"), help="Remove")
+        keep  = not vc4.button("✕", key=_uid(block,f"vdel{vi}"), help="Remove")
         if keep:
             new_vars.append({"name": vname, "value": vval, "unit": vunit})
     d["vars"] = new_vars
@@ -1512,14 +1512,14 @@ def edit_custom_calc(block):
 
     # â"€â"€ Formulas â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     st.markdown("**Formulas** *(write any expression — units flow automatically)*")
-    st.caption("Examples:  `w_Ed = 1.35 * g_k + 1.5 * q_k`   Â·   `F_Ed = w_Ed * L`   Â·   `sigma = F_Ed / A`")
+    st.caption("Examples:  `w_Ed = 1.35 * g_k + 1.5 * q_k`   ·   `F_Ed = w_Ed * L`   ·   `sigma = F_Ed / A`")
     new_formulas = []
     for fi, formula in enumerate(d.get("formulas",[])):
         fc1, fc2 = st.columns([6, 1])
         fval = fc1.text_input("Formula", formula, key=_uid(block,f"f{fi}"),
                               label_visibility="collapsed",
                               placeholder="e.g.   F_Ed = g_k * L")
-        keep = not fc2.button("âœ•", key=_uid(block,f"fdel{fi}"), help="Remove")
+        keep = not fc2.button("✕", key=_uid(block,f"fdel{fi}"), help="Remove")
         if keep:
             new_formulas.append(fval)
     d["formulas"] = new_formulas
@@ -1559,7 +1559,7 @@ def edit_custom_calc(block):
 
     # â"€â"€ Pass/Fail checks â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     st.markdown("**Pass / Fail checks**")
-    st.caption("demand: type a variable name or expression  Â·  capacity: value + unit")
+    st.caption("demand: type a variable name or expression  ·  capacity: value + unit")
     new_checks = []
     for ci, chk in enumerate(d.get("checks",[])):
         cc1, cc2, cc3, cc4, cc5 = st.columns([3, 2, 2, 2, 1])
@@ -1575,7 +1575,7 @@ def edit_custom_calc(block):
                                 index=UNIT_CHOICES.index(chk.get("unit","-")),
                                 key=_uid(block,f"cu{ci}"), label_visibility="collapsed",
                                 format_func=lambda u: UNIT_LABELS.get(u, u))
-        keep    = not cc5.button("âœ•", key=_uid(block,f"cdel{ci}"), help="Remove")
+        keep    = not cc5.button("✕", key=_uid(block,f"cdel{ci}"), help="Remove")
         if keep:
             new_checks.append({"label":clabel,"demand":cdemand,
                                "capacity":ccap,"unit":cunit})
@@ -1606,11 +1606,11 @@ def edit_fem_beam(block):
     sc1, sc2, sc3 = st.columns(3)
     d["E_mpa"]  = sc1.number_input("E [MPa]", value=float(d.get("E_mpa",210000.0)),
                                     min_value=1.0, key=_uid(block,"E"),
-                                    help="Steel â‰ˆ 210 000  |  Timber â‰ˆ 11 000  |  Concrete â‰ˆ 30 000")
-    d["I_cm4"]  = sc2.number_input("I [cmâ´]", value=float(d.get("I_cm4",8356.0)),
+                                    help="Steel ≈ 210 000  |  Timber ≈ 11 000  |  Concrete ≈ 30 000")
+    d["I_cm4"]  = sc2.number_input("I [cm⁴]", value=float(d.get("I_cm4",8356.0)),
                                     min_value=0.001, format="%.1f", key=_uid(block,"I"))
     EI = d["E_mpa"] * 1e6 * d["I_cm4"] * 1e-8
-    sc3.metric("EI  [kNÂ·mÂ²]", f"{EI/1e3:.0f}")
+    sc3.metric("EI  [kN·m²]", f"{EI/1e3:.0f}")
 
     # â"€â"€ Supports â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     st.markdown("**Supports**")
@@ -1659,10 +1659,10 @@ def edit_fem_beam(block):
                 h1,h2,h3,h4,h5,h6 = st.columns(6)
                 h1.caption("g_k  [kN/m]")
                 h2.caption("q_k  [kN/m]")
-                h3.caption("Î³_G")
-                h4.caption("Î³_Q")
-                h5.caption("xâ‚  [m]")
-                h6.caption("xâ‚‚  [m]")
+                h3.caption("γ_G")
+                h4.caption("γ_Q")
+                h5.caption("x₁  [m]")
+                h6.caption("x₂  [m]")
                 u1,u2,u3,u4,u5,u6 = st.columns(6)
                 load["g_k_kNm"] = u1.number_input("g_k", value=float(load.get("g_k_kNm", 5.0)),
                                                    key=_uid(block, f"lgk{li}"),
@@ -1670,10 +1670,10 @@ def edit_fem_beam(block):
                 load["q_k_kNm"] = u2.number_input("q_k", value=float(load.get("q_k_kNm", 3.0)),
                                                    key=_uid(block, f"lqk{li}"),
                                                    label_visibility="collapsed")
-                load["gamma_G"] = u3.number_input("Î³_G", value=float(load.get("gamma_G", 1.35)),
+                load["gamma_G"] = u3.number_input("γ_G", value=float(load.get("gamma_G", 1.35)),
                                                    key=_uid(block, f"lgG{li}"),
                                                    label_visibility="collapsed")
-                load["gamma_Q"] = u4.number_input("Î³_Q", value=float(load.get("gamma_Q", 1.50)),
+                load["gamma_Q"] = u4.number_input("γ_Q", value=float(load.get("gamma_Q", 1.50)),
                                                    key=_uid(block, f"lgQ{li}"),
                                                    label_visibility="collapsed")
                 load["x1_m"]   = u5.number_input("x1",  value=float(load.get("x1_m", 0.0)),
@@ -1684,8 +1684,8 @@ def edit_fem_beam(block):
                                                    label_visibility="collapsed")
                 w_Ed = load["gamma_G"] * load["g_k_kNm"] + load["gamma_Q"] * load["q_k_kNm"]
                 st.caption(
-                    f"w_Ed = {load['gamma_G']}Ã—{load['g_k_kNm']} "
-                    f"+ {load['gamma_Q']}Ã—{load['q_k_kNm']} = **{w_Ed:.3f} kN/m**"
+                    f"w_Ed = {load['gamma_G']}×{load['g_k_kNm']} "
+                    f"+ {load['gamma_Q']}×{load['q_k_kNm']} = **{w_Ed:.3f} kN/m**"
                 )
 
             elif new_type == "point":
@@ -1705,14 +1705,14 @@ def edit_fem_beam(block):
             elif new_type == "trapezoidal":
                 # Two rows of headers for 8 narrow columns
                 th1,th2,th3,th4,th5,th6,th7,th8 = st.columns(8)
-                th1.caption("g_kâ‚ [kN/m]")
-                th2.caption("q_kâ‚ [kN/m]")
-                th3.caption("g_kâ‚‚ [kN/m]")
-                th4.caption("q_kâ‚‚ [kN/m]")
-                th5.caption("Î³_G")
-                th6.caption("Î³_Q")
-                th7.caption("xâ‚ [m]")
-                th8.caption("xâ‚‚ [m]")
+                th1.caption("g_k₁ [kN/m]")
+                th2.caption("q_k₁ [kN/m]")
+                th3.caption("g_k₂ [kN/m]")
+                th4.caption("q_k₂ [kN/m]")
+                th5.caption("γ_G")
+                th6.caption("γ_Q")
+                th7.caption("x₁ [m]")
+                th8.caption("x₂ [m]")
                 t1,t2,t3,t4,t5,t6,t7,t8 = st.columns(8)
                 load["g_k1_kNm"] = t1.number_input("g_k1", value=float(load.get("g_k1_kNm", 5.0)),
                                                     key=_uid(block, f"lgk1{li}"),
@@ -1726,10 +1726,10 @@ def edit_fem_beam(block):
                 load["q_k2_kNm"] = t4.number_input("q_k2", value=float(load.get("q_k2_kNm", 0.0)),
                                                     key=_uid(block, f"lqk2{li}"),
                                                     label_visibility="collapsed")
-                load["gamma_G"]  = t5.number_input("Î³_G",  value=float(load.get("gamma_G", 1.35)),
+                load["gamma_G"]  = t5.number_input("γ_G",  value=float(load.get("gamma_G", 1.35)),
                                                     key=_uid(block, f"ltgG{li}"),
                                                     label_visibility="collapsed")
-                load["gamma_Q"]  = t6.number_input("Î³_Q",  value=float(load.get("gamma_Q", 1.50)),
+                load["gamma_Q"]  = t6.number_input("γ_Q",  value=float(load.get("gamma_Q", 1.50)),
                                                     key=_uid(block, f"ltgQ{li}"),
                                                     label_visibility="collapsed")
                 load["x1_m"]     = t7.number_input("x1",   value=float(load.get("x1_m", 0.0)),
@@ -1786,11 +1786,11 @@ def edit_fem_beam(block):
 
             # Key result metrics
             rc1, rc2, rc3 = st.columns(3)
-            rc1.metric("M_Ed",  f"{d['res_M_Ed_kNm']:.3f} kNÂ·m",
+            rc1.metric("M_Ed",  f"{d['res_M_Ed_kNm']:.3f} kN·m",
                                 f"at x = {d['res_x_M_m']:.3f} m")
             rc2.metric("V_Ed",  f"{d['res_V_Ed_kN']:.3f} kN",
                                 f"at x = {d['res_x_V_m']:.3f} m")
-            rc3.metric("Î´_max", f"{d['res_delta_mm']:.3f} mm",
+            rc3.metric("δ_max", f"{d['res_delta_mm']:.3f} mm",
                                 f"at x = {d['res_x_delta_m']:.3f} m")
 
             # Results diagram (4-panel, compact)
@@ -1964,7 +1964,7 @@ with col_h:
         f"<h1 style='font-size:22px; font-weight:700; letter-spacing:0.02em; margin-bottom:2px;'>"
         f"Report Builder</h1>"
         f"<p style='font-size:12px; color:#999; margin-top:0;'>"
-        f"{proj_project} &nbsp;Â·&nbsp; {proj_ref} &nbsp;Â·&nbsp; Rev {proj_rev}"
+        f"{proj_project} &nbsp;·&nbsp; {proj_ref} &nbsp;·&nbsp; Rev {proj_rev}"
         f"</p>",
         unsafe_allow_html=True,
     )
