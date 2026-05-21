@@ -1,5 +1,5 @@
 ﻿"""
-app.py â€” OMKREDS Structural Report Generator
+app.py — OMKREDS Structural Report Generator
 Local Streamlit web app.  Run with:  streamlit run app.py
 """
 
@@ -67,7 +67,7 @@ UNIT_CHOICES = [
     "kg","kN/m**3",
 ]
 UNIT_LABELS = {
-    "-":"â€”","m":"m","mm":"mm","cm":"cm",
+    "-":"—","m":"m","mm":"mm","cm":"cm",
     "kN":"kN","N":"N","MN":"MN",
     "kN/m":"kN/m","N/m":"N/m","kN/m**2":"kN/mÂ²",
     "MPa":"MPa","GPa":"GPa","kPa":"kPa",
@@ -79,22 +79,22 @@ UNIT_LABELS = {
 }
 
 BLOCK_MENU = {
-    "â€” Analysis â€”": None,
+    "— Analysis —": None,
     "FEM beam analysis": "fem_beam",
-    "â€” Eurocode checks â€”": None,
+    "— Eurocode checks —": None,
     "Timber beam-column  (EN 1995)": "timber_beam_column",
     "Timber beam  (EN 1995)": "timber_beam",
     "Steel beam IPE / HEA / HEB / L  (EN 1993)": "steel_beam",
     "Concrete beam  (EN 1992)": "concrete_beam",
     "Concrete column  (EN 1992)": "concrete_column",
     "Masonry wall  (EN 1996)": "masonry_wall",
-    "â€” Content â€”": None,
+    "— Content —": None,
     "Custom calculation": "custom_calc",
     "Section heading": "heading",
     "Paragraph text": "text",
     "Note / warning": "note",
     "Figure / image": "figure",
-    "â€” Layout â€”": None,
+    "— Layout —": None,
     "Page break": "pagebreak",
 }
 
@@ -127,7 +127,7 @@ header { background: transparent !important; box-shadow: none !important; }
 }
 [data-testid="stSidebar"] { border-right: 1px solid #e8e8e8; }
 
-/* Block expanders â€” clean top border, no radius */
+/* Block expanders — clean top border, no radius */
 div[data-testid="stExpander"] {
     border: 1px solid #e8e8e8 !important;
     border-top: 2px solid #111 !important;
@@ -139,7 +139,7 @@ div[data-testid="stExpander"] summary {
     letter-spacing: 0.06em !important; text-transform: uppercase !important;
 }
 
-/* Primary button â€” solid black */
+/* Primary button — solid black */
 div[data-testid="stButton"] > button[kind="primary"] {
     background: #111 !important; color: #fff !important;
     border: none !important; border-radius: 2px !important;
@@ -148,7 +148,7 @@ div[data-testid="stButton"] > button[kind="primary"] {
 }
 div[data-testid="stButton"] > button[kind="primary"]:hover { background: #333 !important; }
 
-/* Secondary buttons â€” outline */
+/* Secondary buttons — outline */
 div[data-testid="stButton"] > button:not([kind="primary"]) {
     border-radius: 2px !important; font-size: 11px !important;
     letter-spacing: 0.04em !important;
@@ -162,7 +162,7 @@ div[data-testid="stDownloadButton"] > button {
     letter-spacing: 0.06em !important; font-size: 11px !important;
 }
 
-/* Input fields â€” square corners */
+/* Input fields — square corners */
 input, textarea { border-radius: 2px !important; }
 
 /* Remove radio label uppercase that was set globally */
@@ -440,7 +440,7 @@ def _beam_layout_preview_bytes(data: dict) -> bytes:
     E    = float(data.get("E_mpa", 210000.0)) * 1e6
     I    = float(data.get("I_cm4", 8356.0))   * 1e-8
 
-    # Minimal element count â€” we only need the diagram, not solved results
+    # Minimal element count — we only need the diagram, not solved results
     preview = BeamFEM(length=span, E=E, I=I, n_elements=20)
 
     for sup in data.get("supports", []):
@@ -532,7 +532,7 @@ def evaluate_custom_calc(var_rows, formula_rows):
         ns           : dict of computed quantities (for checks)
         errors       : list of error strings
     """
-    ns      = {}   # local namespace â€” grows as vars and formulas are evaluated
+    ns      = {}   # local namespace — grows as vars and formulas are evaluated
     display = []
     errors  = []
 
@@ -643,7 +643,7 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
 
     elif t == "fem_beam":
         d = block["data"]
-        blocks_out = [S(f"FEM analysis â€” {d.get('label','')}")]
+        blocks_out = [S(f"FEM analysis — {d.get('label','')}")]
         try:
             summary, beam = _run_fem(d)
             # Save diagram to temp file for FIG block
@@ -662,7 +662,7 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
                 CALC_ROW("M_Ed", "", f"{M_kNm:.3f} kNÂ·m"),
                 CALC_ROW("V_Ed", "", f"{V_kN:.3f} kN"),
                 CALC_ROW("delta_max", "", f"{d_mm:.3f} mm"),
-                FIG(tmp_path, caption=f"FEM results â€” {d.get('label','')}"),
+                FIG(tmp_path, caption=f"FEM results — {d.get('label','')}"),
             ]
         except Exception as exc:
             blocks_out.append(NOTE(f"FEM error: {exc}"))
@@ -702,7 +702,7 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
                 return [NOTE(f"FEM block '{lbl}' not found or not solved.")]
             beam_results = {
                 "source": "beam_fem",
-                "case_name": f"FEM â€” {lbl}",
+                "case_name": f"FEM — {lbl}",
                 "M_Ed":      res["M_Ed_Nm"]      * N * m,
                 "V_Ed":      res["V_Ed_N"]        * N,
                 "delta_max": res["delta_max_m"]   * m,
@@ -745,7 +745,7 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
             return [NOTE(f"Steel section '{d['section']}' not found in catalog.")]
         sec  = db[key]
 
-        # Section properties come from catalog â€” not user-editable
+        # Section properties come from catalog — not user-editable
         W_ply = sec["Wply_cm3"] * mm**3 * 1e3   # cmÂ³ â†’ mmÂ³ â†’ Physical (mmÂ³)
         h     = sec["h_mm"]     * mm
         t_w   = sec["tw_mm"]    * mm
@@ -765,7 +765,7 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
                 return [NOTE(f"FEM block '{lbl}' not found or not solved.")]
             beam_results = {
                 "source": "beam_fem",
-                "case_name": f"FEM â€” {lbl}",
+                "case_name": f"FEM — {lbl}",
                 "M_Ed":      res["M_Ed_Nm"]    * N * m,
                 "V_Ed":      res["V_Ed_N"]      * N,
                 "delta_max": res["delta_max_m"] * m,
@@ -791,7 +791,7 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
         _b_qty    = sec["b_mm"]  * mm if _family in ("IPE", "HEA", "HEB") else None
         _tf_qty   = sec["tf_mm"] * mm if _family in ("IPE", "HEA", "HEB") else None
 
-        # Effective LTB length â€” only when LTB is not suppressed
+        # Effective LTB length — only when LTB is not suppressed
         _ltb_restrained = bool(d.get("ltb_restrained", False))
         _lcr_raw = d.get("l_cr_ltb_m")
         _l_cr_ltb = (
@@ -1166,19 +1166,19 @@ def edit_steel_beam(block):
     )
     rc1, rc2, rc3 = st.columns(3)
     d["ltb_restrained"]    = rc1.checkbox(
-        "Restrained â€” LTB",
+        "Restrained — LTB",
         value=bool(d.get("ltb_restrained", False)),
         key=_uid(block, "ltbr"),
         help="Bottom (compression) flange restrained against lateral displacement â†’ Ï‡_LT = 1.0",
     )
     d["buck_y_restrained"] = rc2.checkbox(
-        "Restrained â€” y-axis",
+        "Restrained — y-axis",
         value=bool(d.get("buck_y_restrained", False)),
         key=_uid(block, "byr"),
         help="Beam braced against out-of-plane movement (y-direction) by secondary beams/diaphragm",
     )
     d["buck_x_restrained"] = rc3.checkbox(
-        "Restrained â€” x-axis",
+        "Restrained — x-axis",
         value=bool(d.get("buck_x_restrained", False)),
         key=_uid(block, "bxr"),
         help="Support conditions prevent in-plane buckling (x-direction / plane of bending)",
@@ -1188,7 +1188,7 @@ def edit_steel_beam(block):
     if not d["ltb_restrained"]:
         _family = sec.get("family", "")
         if _family in ("IPE", "HEA", "HEB"):
-            st.markdown("**LTB parameters** *(EN 1993-1-1 cl. 6.3.2.2 â€” general case)*")
+            st.markdown("**LTB parameters** *(EN 1993-1-1 cl. 6.3.2.2 — general case)*")
             lt1, lt2, lt3 = st.columns(3)
             _lcr_default = float(d.get("l_cr_ltb_m") or d.get("span_m", 5.0))
             d["l_cr_ltb_m"] = lt1.number_input(
@@ -1511,7 +1511,7 @@ def edit_custom_calc(block):
     st.markdown("---")
 
     # â"€â"€ Formulas â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-    st.markdown("**Formulas** *(write any expression â€” units flow automatically)*")
+    st.markdown("**Formulas** *(write any expression — units flow automatically)*")
     st.caption("Examples:  `w_Ed = 1.35 * g_k + 1.5 * q_k`   Â·   `F_Ed = w_Ed * L`   Â·   `sigma = F_Ed / A`")
     new_formulas = []
     for fi, formula in enumerate(d.get("formulas",[])):
@@ -1602,7 +1602,7 @@ def edit_fem_beam(block):
                           min_value=20, max_value=500, step=10, key=_uid(block,"nel")))
 
     # â"€â"€ Stiffness â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-    st.markdown("**Section stiffness â€” EI**")
+    st.markdown("**Section stiffness — EI**")
     sc1, sc2, sc3 = st.columns(3)
     d["E_mpa"]  = sc1.number_input("E [MPa]", value=float(d.get("E_mpa",210000.0)),
                                     min_value=1.0, key=_uid(block,"E"),
@@ -1768,7 +1768,7 @@ def edit_fem_beam(block):
             preview_png = _beam_layout_preview_bytes(d)
             st.image(preview_png, use_column_width=True)
         except Exception:
-            pass  # silent â€” don't clutter UI with preview errors
+            pass  # silent — don't clutter UI with preview errors
 
     # â"€â"€ Run FEM + show results â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     st.markdown("---")
@@ -1840,12 +1840,12 @@ LABELS = {
     "figure":             "Figure",
     "pagebreak":          "Page break",
     "fem_beam":           "FEM beam analysis",
-    "timber_beam_column": "Timber beam-column â€” EN 1995",
-    "timber_beam":        "Timber beam â€” EN 1995",
-    "steel_beam":         "Steel beam IPE / HEA / HEB / L â€” EN 1993",
-    "concrete_beam":      "Concrete beam â€” EN 1992",
-    "concrete_column":    "Concrete column â€” EN 1992",
-    "masonry_wall":       "Masonry wall â€” EN 1996",
+    "timber_beam_column": "Timber beam-column — EN 1995",
+    "timber_beam":        "Timber beam — EN 1995",
+    "steel_beam":         "Steel beam IPE / HEA / HEB / L — EN 1993",
+    "concrete_beam":      "Concrete beam — EN 1992",
+    "concrete_column":    "Concrete column — EN 1992",
+    "masonry_wall":       "Masonry wall — EN 1996",
     "custom_calc":        "Custom calculation",
 }
 
@@ -1861,7 +1861,7 @@ def _block_summary(block) -> str:
     return ""
 
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-# SIDEBAR â€” PROJECT METADATA
+# SIDEBAR — PROJECT METADATA
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 with st.sidebar:
@@ -1955,7 +1955,7 @@ with st.sidebar:
         out_name += ".pdf"
 
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-# MAIN â€” HEADER + GENERATE BUTTON
+# MAIN — HEADER + GENERATE BUTTON
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 col_h, col_btn = st.columns([4, 1])
@@ -1995,13 +1995,13 @@ if gen_btn:
 st.markdown("---")
 
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-# MAIN â€” BLOCK LIST
+# MAIN — BLOCK LIST
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 if not st.session_state.blocks:
     st.markdown(
         "<p style='color:#bbb; font-size:13px; padding:24px 0;'>"
-        "No blocks yet â€” use Add block below to start building your report."
+        "No blocks yet — use Add block below to start building your report."
         "</p>",
         unsafe_allow_html=True,
     )
@@ -2018,7 +2018,7 @@ for i, block in enumerate(st.session_state.blocks):
     t       = block["type"]
     label   = LABELS.get(t, t)
     summary = _block_summary(block)
-    header  = f"**{label}**" + (f"  â€”  {summary}" if summary else "")
+    header  = f"**{label}**" + (f"  —  {summary}" if summary else "")
 
     with st.expander(header, expanded=(t == "custom_calc" and not summary)):
         if t == "pagebreak":
@@ -2043,7 +2043,7 @@ if to_delete:
     st.rerun()
 
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-# MAIN â€” ADD BLOCK
+# MAIN — ADD BLOCK
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 st.markdown("---")
