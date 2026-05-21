@@ -875,14 +875,43 @@ def edit_note(block):
                                  key=_uid(block,"nt"), height=60)
 
 def edit_figure(block):
-    block["path"]    = st.text_input("File path (absolute)",
-                                     block.get("path",""), key=_uid(block,"fp"))
-    block["caption"] = st.text_input("Caption", block.get("caption",""),
-                                     key=_uid(block,"fc"))
-    if block["path"] and Path(block["path"]).exists():
-        st.image(block["path"], width=300)
-    elif block["path"]:
-        st.warning("File not found.")
+    import hashlib
+    uploads_dir = BASE_DIR / "uploads"
+    uploads_dir.mkdir(exist_ok=True)
+
+    cur_path = block.get("path", "")
+
+    # ── Current image preview + remove button ─────────────────────────────
+    if cur_path and Path(cur_path).exists():
+        p_col, btn_col = st.columns([5, 1])
+        with p_col:
+            st.image(cur_path, width=280)
+        with btn_col:
+            st.markdown("<div style='padding-top:8px'>", unsafe_allow_html=True)
+            if st.button("✕ Remove", key=_uid(block, "frm")):
+                block["path"] = ""
+            st.markdown("</div>", unsafe_allow_html=True)
+    elif cur_path:
+        st.warning(f"Image not found: {cur_path}")
+
+    # ── Drag-and-drop / browse uploader ───────────────────────────────────
+    uploaded = st.file_uploader(
+        "Drop image here, or click to browse  *(PNG / JPG)*",
+        type=["png", "jpg", "jpeg"],
+        key=_uid(block, "fu"),
+    )
+    if uploaded is not None:
+        file_bytes = uploaded.getvalue()
+        file_hash  = hashlib.md5(file_bytes).hexdigest()[:12]
+        ext        = Path(uploaded.name).suffix.lower() or ".png"
+        save_path  = uploads_dir / f"{file_hash}{ext}"
+        if not save_path.exists():
+            save_path.write_bytes(file_bytes)
+        block["path"] = str(save_path)
+
+    # ── Caption ───────────────────────────────────────────────────────────
+    block["caption"] = st.text_input("Caption", block.get("caption", ""),
+                                     key=_uid(block, "fc"))
 
 def edit_timber_beam_column(block):
     d = block["data"]

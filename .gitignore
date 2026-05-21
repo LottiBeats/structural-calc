@@ -18,6 +18,9 @@ rendered/
 venv/
 .venv/
 
+# Uploaded images (user-uploaded at runtime, not versioned)
+uploads/
+
 # OS
 .DS_Store
 Thumbs.db
