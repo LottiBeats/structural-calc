@@ -42,6 +42,7 @@ from steel import steel_beam_ipe
 from concrete import rc_beam_bending
 from concrete_column import concrete_column_rect
 from masonry import masonry_wall_vertical, masonry_wall_ritter
+from templates import DOC_TEMPLATES
 
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 # CONSTANTS
@@ -295,6 +296,24 @@ def _close_document():
         st.session_state.documents[active]["blocks"] = list(st.session_state.blocks)
     st.session_state.active_doc = None
     st.session_state.blocks = []
+    st.rerun()
+
+def _load_template(doc_id):
+    """Load the built-in template for doc_id, replacing its current blocks."""
+    if doc_id not in DOC_TEMPLATES:
+        return
+    new_blocks = []
+    for b in DOC_TEMPLATES[doc_id]:
+        nb = dict(b)
+        nb["id"] = _new_id()
+        new_blocks.append(nb)
+    # Save any currently open document first
+    current = st.session_state.get("active_doc")
+    if current and current != doc_id:
+        st.session_state.documents[current]["blocks"] = list(st.session_state.blocks)
+    st.session_state.documents[doc_id]["blocks"] = new_blocks
+    st.session_state.blocks = list(new_blocks)
+    st.session_state.active_doc = doc_id
     st.rerun()
 
 def _default_block(btype):
@@ -2120,8 +2139,14 @@ if st.session_state.active_doc is None:
                     f"</div></div>",
                     unsafe_allow_html=True,
                 )
-                if st.button("Open →", key=f"open_{doc_id}", use_container_width=True):
-                    _open_document(doc_id)
+                btn_col, tpl_col = st.columns([3, 2])
+                with btn_col:
+                    if st.button("Open →", key=f"open_{doc_id}", use_container_width=True):
+                        _open_document(doc_id)
+                with tpl_col:
+                    if doc_id in DOC_TEMPLATES:
+                        if st.button("Template", key=f"tpl_{doc_id}", use_container_width=True):
+                            _load_template(doc_id)
         st.markdown("<div style='margin-bottom:28px'></div>", unsafe_allow_html=True)
 
 else:
