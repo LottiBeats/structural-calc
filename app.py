@@ -205,6 +205,10 @@ if "active_doc" not in st.session_state:
     st.session_state.active_doc = None
 if "documents" not in st.session_state:
     st.session_state.documents = _empty_documents()
+if "projects" not in st.session_state:
+    st.session_state.projects = []
+if "active_project_id" not in st.session_state:
+    st.session_state.active_project_id = None
 
 # ── project-save / load helpers ───────────────────────────────────────────────
 
@@ -217,59 +221,60 @@ _PROJ_KEYS = [
 ]
 
 def _project_to_json() -> bytes:
-    """Serialise all documents + project metadata to UTF-8 JSON (v3)."""
-    proj_snap = {k: st.session_state.get(k, "") for k in _PROJ_KEYS}
-    # Snapshot documents — merge live blocks for the active doc
-    active = st.session_state.get("active_doc")
-    docs_snap = {}
-    for doc_id, doc in st.session_state.get("documents", {}).items():
-        if doc_id == active:
-            docs_snap[doc_id] = {"title": doc["title"],
-                                 "blocks": list(st.session_state.blocks)}
-        else:
-            docs_snap[doc_id] = {"title": doc["title"],
-                                 "blocks": list(doc["blocks"])}
-    payload = {
-        "version":   3,
-        "project":   proj_snap,
-        "documents": docs_snap,
-        # Legacy key so v2 readers can still find something
-        "blocks":    list(st.session_state.blocks),
-    }
+    """Serialise all projects to UTF-8 JSON (v4)."""
+    _save_active_project()
+    payload = {"version": 4, "projects": st.session_state.projects}
     return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
 def _apply_loaded_project(data: dict):
-    """Write loaded JSON data into session_state (called before rerun)."""
-    proj = data.get("project", {})
-    for k in _PROJ_KEYS:
-        if k in proj:
-            st.session_state[k] = proj[k]
+    """Write loaded JSON data into session_state (v4 / v3 / legacy)."""
+    import uuid as _uuid
 
     def _reassign_ids(blocks):
         out = []
-        for b in blocks:
+        for b in (blocks or []):
             b = dict(b)
             st.session_state._id += 1
             b["id"] = st.session_state._id
             out.append(b)
         return out
 
-    if "documents" in data and isinstance(data["documents"], dict):
-        # v3 format — load all documents
+    def _fix_docs(raw):
         docs = _empty_documents()
-        for doc_id in DOC_DEFS:
-            if doc_id in data["documents"]:
-                docs[doc_id]["blocks"] = _reassign_ids(
-                    data["documents"][doc_id].get("blocks", []))
-        st.session_state.documents = docs
-    else:
-        # v2 legacy — put blocks into A2 (most common use case)
-        docs = _empty_documents()
-        docs["A2"]["blocks"] = _reassign_ids(data.get("blocks", []))
-        st.session_state.documents = docs
+        if isinstance(raw, dict):
+            for did in DOC_DEFS:
+                if did in raw:
+                    docs[did]["blocks"] = _reassign_ids(raw[did].get("blocks", []))
+        return docs
 
-    st.session_state.blocks = []
+    v = data.get("version", 1)
+    if v == 4:
+        projects = data.get("projects", [])
+        for proj in projects:
+            raw_docs = proj.get("documents", {})
+            proj["documents"] = {
+                did: {"title": _empty_documents()[did]["title"],
+                      "blocks": _reassign_ids(raw_docs.get(did, {}).get("blocks", []))}
+                for did in DOC_DEFS
+            }
+        st.session_state.projects = projects
+    else:
+        # v3 / v2 / v1 — wrap as a single project
+        meta = data.get("project", {})
+        docs = _fix_docs(data.get("documents")) if "documents" in data \
+               else _fix_docs({"A2": {"blocks": data.get("blocks", [])}})
+        proj = {
+            "id":       _uuid.uuid4().hex[:8],
+            "metadata": {k: meta.get(k, "") for k in _PROJ_KEYS},
+            "documents": {did: {"title": docs[did]["title"],
+                                "blocks": docs[did]["blocks"]} for did in DOC_DEFS},
+            "created":  str(date.today()),
+        }
+        st.session_state.projects = [proj]
+
+    st.session_state.active_project_id = None
     st.session_state.active_doc = None
+    st.session_state.blocks = []
 
 # Handle a pending load triggered in a previous run
 if "_pending_load" in st.session_state:
@@ -316,6 +321,80 @@ def _load_template(doc_id):
     st.session_state.documents[doc_id]["blocks"] = new_blocks
     st.session_state.blocks = list(new_blocks)
     st.session_state.active_doc = doc_id
+    st.rerun()
+
+# ── Project-level navigation helpers ─────────────────────────────────────────
+
+def _project_by_id(pid):
+    for p in st.session_state.projects:
+        if p["id"] == pid:
+            return p
+    return None
+
+def _save_active_project():
+    """Sync current sidebar state + live documents back into the projects list."""
+    pid = st.session_state.get("active_project_id")
+    if not pid:
+        return
+    proj = _project_by_id(pid)
+    if proj is None:
+        return
+    proj["metadata"] = {k: st.session_state.get(k, "") for k in _PROJ_KEYS}
+    active = st.session_state.get("active_doc")
+    if active:
+        st.session_state.documents[active]["blocks"] = list(st.session_state.blocks)
+    proj["documents"] = {
+        did: {"title": st.session_state.documents[did]["title"],
+              "blocks": list(st.session_state.documents[did]["blocks"])}
+        for did in DOC_DEFS
+    }
+
+def _new_project(name="New Project", ref=""):
+    import uuid as _uuid
+    pid = _uuid.uuid4().hex[:8]
+    meta = {k: "" for k in _PROJ_KEYS}
+    meta["proj_project"] = name
+    meta["proj_ref"]     = ref
+    meta["proj_rev"]     = "A"
+    meta["proj_std"]     = "EN 1990 / EN 1995-1-1"
+    meta["proj_date"]    = date.today().strftime("%d/%m/%Y")
+    meta["proj_chk_date"] = date.today().strftime("%d/%m/%Y")
+    meta["proj_apr_date"] = date.today().strftime("%d/%m/%Y")
+    docs = _empty_documents()
+    return {
+        "id":       pid,
+        "metadata": meta,
+        "documents": {did: {"title": docs[did]["title"], "blocks": []}
+                      for did in DOC_DEFS},
+        "created":  str(date.today()),
+    }
+
+def _open_project(pid):
+    """Load a project into session state and navigate to its dashboard."""
+    _save_active_project()
+    proj = _project_by_id(pid)
+    if proj is None:
+        return
+    for k in _PROJ_KEYS:
+        st.session_state[k] = proj["metadata"].get(k, "")
+    docs = _empty_documents()
+    for did in DOC_DEFS:
+        if did in proj["documents"]:
+            docs[did]["blocks"] = list(proj["documents"][did].get("blocks", []))
+    st.session_state.documents = docs
+    st.session_state.blocks = []
+    st.session_state.active_doc = None
+    st.session_state.active_project_id = pid
+    st.session_state.pop("_pdf_preview", None)
+    st.rerun()
+
+def _close_project():
+    """Save current project and return to the front page."""
+    _save_active_project()
+    st.session_state.active_project_id = None
+    st.session_state.active_doc = None
+    st.session_state.blocks = []
+    st.session_state.pop("_pdf_preview", None)
     st.rerun()
 
 def _default_block(btype):
@@ -2053,76 +2132,159 @@ with st.sidebar:
     if _uploaded is not None:
         try:
             _data = json.loads(_uploaded.read().decode("utf-8"))
-            if not isinstance(_data.get("blocks"), list):
-                raise ValueError("Invalid project file — missing 'blocks' list.")
+            _dv = _data.get("version", 1)
+            if _dv == 4 and not isinstance(_data.get("projects"), list):
+                raise ValueError("Invalid v4 file — missing 'projects' list.")
+            elif _dv < 4 and not isinstance(_data.get("blocks"), list) \
+                         and not isinstance(_data.get("documents"), dict):
+                raise ValueError("Invalid project file format.")
             st.session_state["_pending_load"] = _data
             st.rerun()
         except Exception as _e:
             st.error(f"Could not load file: {_e}")
 
-    st.markdown("---")
-    st.markdown("## Project")
-
-    proj_firm     = st.text_input("Firm",        "Your Firm",       key="proj_firm")
-    proj_project  = st.text_input("Project / Sag", "Project Name",  key="proj_project")
-    proj_title    = st.text_input("Title",        "Structural Calculations", key="proj_title")
-    proj_section  = st.text_input("Afsnit",       "",               key="proj_section",
-                                  help="Document section shown in the Afsnit header cell")
-    proj_ref      = st.text_input("Sagsnr / Ref", "SC-2025-001",    key="proj_ref")
-    proj_rev      = st.text_input("Revision",     "A",              key="proj_rev")
-    proj_standard = st.text_input("Standard",     "EN 1990 / EN 1995-1-1", key="proj_std")
-
-    st.markdown("### People & dates")
-    proj_engineer      = st.text_input("Beregnet af",     "",  key="proj_eng")
-    proj_checker       = st.text_input("Kontrolleret af", "",  key="proj_chk")
-    proj_approver      = st.text_input("Godkendt af",     "",  key="proj_apr")
-    proj_date          = st.text_input("Dato",            date.today().strftime("%d/%m/%Y"), key="proj_date")
-    proj_checker_date  = st.text_input("Dato (kontrol)",  date.today().strftime("%d/%m/%Y"), key="proj_chk_date")
-    proj_approver_date = st.text_input("Dato (godkendt)", date.today().strftime("%d/%m/%Y"), key="proj_apr_date")
-
-    st.markdown("### Firm contact")
-    proj_address = st.text_input("Address", "", key="proj_address")
-    proj_phone   = st.text_input("Phone",   "", key="proj_phone")
-    proj_cvr     = st.text_input("CVR",     "", key="proj_cvr")
-    proj_email   = st.text_input("Email",   "", key="proj_email")
-
-    PROJECT = {
-        "firm":           proj_firm,
-        "project":        proj_project,
-        "title":          proj_title,
-        "section":        proj_section or proj_title,
-        "ref":            proj_ref,
-        "revision":       proj_rev,
-        "standard":       proj_standard,
-        "engineer":       proj_engineer,
-        "checker":        proj_checker,
-        "approver":       proj_approver or proj_checker,
-        "date":           proj_date,
-        "checker_date":   proj_checker_date,
-        "approver_date":  proj_approver_date,
-        "address":        proj_address,
-        "phone":          proj_phone,
-        "cvr":            proj_cvr,
-        "email":          proj_email,
-    }
-
-    # Active document indicator
-    if st.session_state.get("active_doc"):
-        _ad = st.session_state.active_doc
+    # ── Project navigation ────────────────────────────────────────────────────
+    if st.session_state.get("active_project_id"):
+        if st.button("← All projects", use_container_width=True, key="sb_back_proj"):
+            _close_project()
         st.markdown("---")
-        st.markdown(
-            f"<div style='background:#F5F5F5; border-left:3px solid #E74825; "
-            f"padding:8px 10px; font-size:11px; color:#1C1C1E;'>"
-            f"<b>Editing:</b> {_ad} — {DOC_DEFS.get(_ad, '')}</div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("## Project")
+
+        proj_firm     = st.text_input("Firm",          st.session_state.get("proj_firm",""),    key="proj_firm")
+        proj_project  = st.text_input("Project / Sag", st.session_state.get("proj_project",""), key="proj_project")
+        proj_title    = st.text_input("Title",          st.session_state.get("proj_title","Structural Calculations"), key="proj_title")
+        proj_section  = st.text_input("Afsnit",         st.session_state.get("proj_section",""), key="proj_section",
+                                      help="Document section shown in the Afsnit header cell")
+        proj_ref      = st.text_input("Sagsnr / Ref",   st.session_state.get("proj_ref",""),    key="proj_ref")
+        proj_rev      = st.text_input("Revision",       st.session_state.get("proj_rev","A"),   key="proj_rev")
+        proj_standard = st.text_input("Standard",       st.session_state.get("proj_std","EN 1990 / EN 1995-1-1"), key="proj_std")
+
+        st.markdown("### People & dates")
+        proj_engineer      = st.text_input("Beregnet af",     st.session_state.get("proj_eng",""),  key="proj_eng")
+        proj_checker       = st.text_input("Kontrolleret af", st.session_state.get("proj_chk",""),  key="proj_chk")
+        proj_approver      = st.text_input("Godkendt af",     st.session_state.get("proj_apr",""),  key="proj_apr")
+        proj_date          = st.text_input("Dato",            st.session_state.get("proj_date", date.today().strftime("%d/%m/%Y")), key="proj_date")
+        proj_checker_date  = st.text_input("Dato (kontrol)",  st.session_state.get("proj_chk_date", date.today().strftime("%d/%m/%Y")), key="proj_chk_date")
+        proj_approver_date = st.text_input("Dato (godkendt)", st.session_state.get("proj_apr_date", date.today().strftime("%d/%m/%Y")), key="proj_apr_date")
+
+        st.markdown("### Firm contact")
+        proj_address = st.text_input("Address", st.session_state.get("proj_address",""), key="proj_address")
+        proj_phone   = st.text_input("Phone",   st.session_state.get("proj_phone",""),   key="proj_phone")
+        proj_cvr     = st.text_input("CVR",     st.session_state.get("proj_cvr",""),     key="proj_cvr")
+        proj_email   = st.text_input("Email",   st.session_state.get("proj_email",""),   key="proj_email")
+
+        PROJECT = {
+            "firm":           proj_firm,
+            "project":        proj_project,
+            "title":          proj_title,
+            "section":        proj_section or proj_title,
+            "ref":            proj_ref,
+            "revision":       proj_rev,
+            "standard":       proj_standard,
+            "engineer":       proj_engineer,
+            "checker":        proj_checker,
+            "approver":       proj_approver or proj_checker,
+            "date":           proj_date,
+            "checker_date":   proj_checker_date,
+            "approver_date":  proj_approver_date,
+            "address":        proj_address,
+            "phone":          proj_phone,
+            "cvr":            proj_cvr,
+            "email":          proj_email,
+        }
+
+        # Active document indicator
+        if st.session_state.get("active_doc"):
+            _ad = st.session_state.active_doc
+            st.markdown("---")
+            st.markdown(
+                f"<div style='background:#F5F5F5; border-left:3px solid #E74825; "
+                f"padding:8px 10px; font-size:11px; color:#1C1C1E;'>"
+                f"<b>Editing:</b> {_ad} — {DOC_DEFS.get(_ad, '')}</div>",
+                unsafe_allow_html=True,
+            )
+    else:
+        # Front page — no active project; still need PROJECT defined to avoid NameError
+        proj_project = proj_ref = proj_rev = proj_date = ""
+        PROJECT = {}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
+# MAIN — three-level navigation
+# ─────────────────────────────────────────────────────────────────────────────
 
-if st.session_state.active_doc is None:
-    # ── DASHBOARD ────────────────────────────────────────────────────────────
+_active_pid = st.session_state.active_project_id
+_active_doc = st.session_state.active_doc
+
+if _active_pid is None:
+    # ── FRONT PAGE — project folders ─────────────────────────────────────────
+    st.markdown(
+        "<h1 style='font-size:28px; font-weight:800; letter-spacing:0.01em; margin-bottom:4px;'>"
+        "Projects</h1>"
+        "<p style='font-size:13px; color:#6E6E73; margin-top:0; margin-bottom:24px;'>"
+        "Open a project or create a new one.</p>",
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("+ New project", expanded=(not st.session_state.projects)):
+        with st.form("new_project_form", clear_on_submit=True):
+            _np_c1, _np_c2 = st.columns(2)
+            _np_name = _np_c1.text_input("Project name", placeholder="Ablelokkerne")
+            _np_ref  = _np_c2.text_input("Sagsnr / Ref", placeholder="202328")
+            if st.form_submit_button("Create project", use_container_width=True):
+                _p = _new_project(name=_np_name or "New Project", ref=_np_ref)
+                st.session_state.projects.append(_p)
+                _open_project(_p["id"])
+
+    if not st.session_state.projects:
+        st.markdown(
+            "<p style='color:#bbb; font-size:13px; padding:24px 0;'>"
+            "No projects yet — create one above.</p>",
+            unsafe_allow_html=True,
+        )
+    else:
+        _COLS = 3
+        for _rs in range(0, len(st.session_state.projects), _COLS):
+            _row = st.session_state.projects[_rs:_rs + _COLS]
+            _gcols = st.columns(_COLS)
+            for _gc, _proj in zip(_gcols, _row):
+                with _gc:
+                    _m  = _proj["metadata"]
+                    _pn = _m.get("proj_project") or "Untitled"
+                    _pr = _m.get("proj_ref", "")
+                    _pd = _proj.get("created", "")
+                    _nd = sum(
+                        1 for d in DOC_DEFS
+                        if len(_proj["documents"].get(d, {}).get("blocks", [])) > 0
+                    )
+                    st.markdown(
+                        f"<div style='border:1px solid #e8e8e8; border-top:3px solid #E74825; "
+                        f"padding:16px 14px 12px; margin-bottom:6px;'>"
+                        f"<div style='font-size:18px; font-weight:800; color:#1C1C1E; "
+                        f"line-height:1.2; margin-bottom:4px;'>{_pn}</div>"
+                        f"<div style='font-size:11px; color:#6E6E73; margin-bottom:2px;'>{_pr}</div>"
+                        f"<div style='font-size:10px; color:#AEAEB2; margin-bottom:8px;'>{_pd}</div>"
+                        f"<div style='font-size:10px; color:#AEAEB2;'>"
+                        f"{'&#9679;' if _nd > 0 else '&#9675;'}&nbsp;{_nd} / 7 documents"
+                        f"</div></div>",
+                        unsafe_allow_html=True,
+                    )
+                    _oc1, _oc2 = st.columns([3, 1])
+                    if _oc1.button("Open →", key=f"proj_open_{_proj['id']}",
+                                   use_container_width=True):
+                        _open_project(_proj["id"])
+                    if _oc2.button("✕", key=f"proj_del_{_proj['id']}",
+                                   use_container_width=True, help="Delete project"):
+                        st.session_state.projects = [
+                            p for p in st.session_state.projects if p["id"] != _proj["id"]
+                        ]
+                        st.rerun()
+            if _rs + _COLS < len(st.session_state.projects):
+                st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
+
+elif _active_doc is None:
+    # ── PROJECT DASHBOARD ────────────────────────────────────────────────────
     st.markdown(
         f"<h1 style='font-size:26px; font-weight:800; letter-spacing:0.01em; margin-bottom:4px;'>"
         f"{proj_project}</h1>"
@@ -2143,7 +2305,7 @@ if st.session_state.active_doc is None:
                 doc = st.session_state.documents[doc_id]
                 n_blocks = len(doc["blocks"])
                 accent = "#E74825" if doc_id.startswith("A") else "#032E38"
-                dot    = "●" if n_blocks > 0 else "○"
+                dot    = "&#9679;" if n_blocks > 0 else "&#9675;"
                 st.markdown(
                     f"<div style='border:1px solid #e8e8e8; border-top:3px solid {accent}; "
                     f"padding:16px 14px 10px; margin-bottom:4px; min-height:90px;'>"
@@ -2167,7 +2329,7 @@ if st.session_state.active_doc is None:
         st.markdown("<div style='margin-bottom:28px'></div>", unsafe_allow_html=True)
 
 else:
-    # ── EDITOR ───────────────────────────────────────────────────────────────
+    # ── DOCUMENT EDITOR ──────────────────────────────────────────────────────
     active_doc = st.session_state.active_doc
     doc_title  = DOC_DEFS.get(active_doc, "")
 
@@ -2208,7 +2370,7 @@ else:
                     st.error(f"PDF generation failed: {exc}")
                     st.code(traceback.format_exc())
 
-    # ── PDF inline preview ────────────────────────────────────────────────────
+    # -- PDF inline preview ---------------------------------------------------
     _pdf = st.session_state.get("_pdf_preview")
     if _pdf:
         st.markdown("---")
@@ -2223,7 +2385,6 @@ else:
         if _cls_col.button("Close preview", use_container_width=True):
             st.session_state.pop("_pdf_preview", None)
             st.rerun()
-        # Render each page as an image (avoids Chrome iframe restrictions)
         try:
             import pypdfium2 as _pdfium
             _doc = _pdfium.PdfDocument(_pdf["bytes"])
@@ -2231,7 +2392,7 @@ else:
             st.caption(f"{_n_pages} page{'s' if _n_pages != 1 else ''}")
             for _pi in range(_n_pages):
                 _page   = _doc[_pi]
-                _bitmap = _page.render(scale=2.0)   # ~150 dpi
+                _bitmap = _page.render(scale=2.0)
                 _img    = _bitmap.to_pil()
                 st.image(_img, use_container_width=True)
                 if _pi < _n_pages - 1:
@@ -2252,17 +2413,14 @@ else:
             unsafe_allow_html=True,
         )
 
-    # ── Drag-to-reorder strip ─────────────────────────────────────────────────
+    # -- Drag-to-reorder strip ------------------------------------------------
     if len(st.session_state.blocks) > 1:
         with st.expander("☰  Drag to reorder blocks", expanded=False):
-            # Build unique display labels; encode original position so we can
-            # map back even if two blocks have identical summaries.
             _so_labels, _so_id_map = [], {}
             for _si, _sb in enumerate(st.session_state.blocks, 1):
                 _icon = ICONS.get(_sb["type"], "□")
                 _txt  = _block_summary(_sb) or LABELS.get(_sb["type"], _sb["type"])
                 _lbl  = f"{_si:02d}  {_icon}  {_txt[:50]}"
-                # guarantee uniqueness (shouldn't be needed but be safe)
                 _base, _n = _lbl, 1
                 while _lbl in _so_id_map:
                     _lbl = f"{_base}  ·{_n}"
