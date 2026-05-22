@@ -43,6 +43,7 @@ from concrete import rc_beam_bending
 from concrete_column import concrete_column_rect
 from masonry import masonry_wall_vertical, masonry_wall_ritter
 from templates import DOC_TEMPLATES
+from streamlit_sortables import sort_items as _sort_items
 
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 # CONSTANTS
@@ -426,6 +427,7 @@ def _default_block(btype):
     elif btype == "figure":
         base["path"] = ""
         base["caption"] = ""
+        base["width"] = "full"  # "full" | "half" | "third"
     return base
 
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -738,7 +740,8 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
         path = block.get("path", "").strip()
         if not path or not Path(path).exists():
             return [NOTE(f"Figure not found: {path}")]
-        return [FIG(path, block.get("caption", ""))]
+        _fig_w = {"full": 170, "half": 82, "third": 54}.get(block.get("width", "full"), 170)
+        return [FIG(path, block.get("caption", ""), width_mm=_fig_w)]
 
     elif t == "fem_beam":
         d = block["data"]
@@ -1080,10 +1083,14 @@ def edit_figure(block):
     cur_path = block.get("path", "")
 
     # ── Current image preview + remove button ─────────────────────────────
+    _preview_w = {"full": None, "half": 380, "third": 250}.get(block.get("width", "full"))
     if cur_path and Path(cur_path).exists():
         p_col, btn_col = st.columns([5, 1])
         with p_col:
-            st.image(cur_path, width=280)
+            if _preview_w:
+                st.image(cur_path, width=_preview_w)
+            else:
+                st.image(cur_path, use_container_width=True)
         with btn_col:
             st.markdown("<div style='padding-top:8px'>", unsafe_allow_html=True)
             if st.button("✕ Remove", key=_uid(block, "frm")):
@@ -1107,9 +1114,18 @@ def edit_figure(block):
             save_path.write_bytes(file_bytes)
         block["path"] = str(save_path)
 
-    # ── Caption ───────────────────────────────────────────────────────────
-    block["caption"] = st.text_input("Caption", block.get("caption", ""),
-                                     key=_uid(block, "fc"))
+    # ── Caption + width ───────────────────────────────────────────────────
+    _FW_OPTIONS = {"full": "Full width", "half": "Half width", "third": "Third width"}
+    fw_col, cap_col = st.columns([1, 2])
+    block["width"] = fw_col.selectbox(
+        "Width",
+        list(_FW_OPTIONS.keys()),
+        format_func=lambda k: _FW_OPTIONS[k],
+        index=list(_FW_OPTIONS.keys()).index(block.get("width", "full")),
+        key=_uid(block, "fw"),
+    )
+    block["caption"] = cap_col.text_input("Caption", block.get("caption", ""),
+                                          key=_uid(block, "fc"))
 
 def edit_timber_beam_column(block):
     d = block["data"]
@@ -2206,11 +2222,31 @@ else:
             unsafe_allow_html=True,
         )
 
-    def _move_block(i, direction):
-        lst = st.session_state.blocks
-        j = i + direction
-        if 0 <= j < len(lst):
-            lst[i], lst[j] = lst[j], lst[i]
+    # ── Drag-to-reorder strip ─────────────────────────────────────────────────
+    if len(st.session_state.blocks) > 1:
+        with st.expander("☰  Drag to reorder blocks", expanded=False):
+            # Build unique display labels; encode original position so we can
+            # map back even if two blocks have identical summaries.
+            _so_labels, _so_id_map = [], {}
+            for _si, _sb in enumerate(st.session_state.blocks, 1):
+                _icon = ICONS.get(_sb["type"], "□")
+                _txt  = _block_summary(_sb) or LABELS.get(_sb["type"], _sb["type"])
+                _lbl  = f"{_si:02d}  {_icon}  {_txt[:50]}"
+                # guarantee uniqueness (shouldn't be needed but be safe)
+                _base, _n = _lbl, 1
+                while _lbl in _so_id_map:
+                    _lbl = f"{_base}  ·{_n}"
+                    _n  += 1
+                _so_id_map[_lbl] = _sb["id"]
+                _so_labels.append(_lbl)
+
+            _sorted_labels = _sort_items(_so_labels)
+            if _sorted_labels != _so_labels:
+                _blk_by_id = {b["id"]: b for b in st.session_state.blocks}
+                st.session_state.blocks = [
+                    _blk_by_id[_so_id_map[l]] for l in _sorted_labels
+                ]
+                st.rerun()
 
     to_delete = set()
 
@@ -2227,14 +2263,8 @@ else:
                 EDITORS[t](block)
 
             st.markdown("")
-            bc1, bc2, bc3, _ = st.columns([1, 1, 1, 5])
-            bc1.button("Up",   key=f"up_{block['id']}", help="Move up",
-                       on_click=_move_block, args=(i, -1),
-                       disabled=(i == 0))
-            bc2.button("Down", key=f"dn_{block['id']}", help="Move down",
-                       on_click=_move_block, args=(i, 1),
-                       disabled=(i == len(st.session_state.blocks) - 1))
-            if bc3.button("Delete", key=f"del_{block['id']}"):
+            _del_col, _ = st.columns([1, 7])
+            if _del_col.button("Delete", key=f"del_{block['id']}"):
                 to_delete.add(block["id"])
 
     if to_delete:

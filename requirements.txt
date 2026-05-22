@@ -4,3 +4,4 @@ matplotlib>=3.8.0
 reportlab>=4.1.0
 forallpeople>=2.6.0
 handcalcs>=1.6.0
+streamlit-sortables>=0.3.0
