@@ -2212,7 +2212,6 @@ else:
     _pdf = st.session_state.get("_pdf_preview")
     if _pdf:
         st.markdown("---")
-        _b64 = base64.b64encode(_pdf["bytes"]).decode()
         _dl_col, _cls_col, _ = st.columns([2, 1, 3])
         _dl_col.download_button(
             label     = f"Download  {_pdf['fname']}",
@@ -2224,26 +2223,24 @@ else:
         if _cls_col.button("Close preview", use_container_width=True):
             st.session_state.pop("_pdf_preview", None)
             st.rerun()
-        # Use a JS Blob URL — Chrome blocks data: URIs in iframes
-        import streamlit.components.v1 as _components
-        _viewer_html = f"""
-<html><body style="margin:0;padding:0;overflow:hidden;">
-<script>
-(function(){{
-  var b64="{_b64}";
-  var bin=atob(b64);
-  var buf=new ArrayBuffer(bin.length);
-  var arr=new Uint8Array(buf);
-  for(var i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
-  var blob=new Blob([buf],{{type:"application/pdf"}});
-  var url=URL.createObjectURL(blob);
-  var f=document.createElement("iframe");
-  f.src=url; f.style.cssText="width:100%;height:890px;border:none;";
-  document.body.appendChild(f);
-}})();
-</script>
-</body></html>"""
-        _components.html(_viewer_html, height=900, scrolling=False)
+        # Render each page as an image (avoids Chrome iframe restrictions)
+        try:
+            import pypdfium2 as _pdfium
+            _doc = _pdfium.PdfDocument(_pdf["bytes"])
+            _n_pages = len(_doc)
+            st.caption(f"{_n_pages} page{'s' if _n_pages != 1 else ''}")
+            for _pi in range(_n_pages):
+                _page   = _doc[_pi]
+                _bitmap = _page.render(scale=2.0)   # ~150 dpi
+                _img    = _bitmap.to_pil()
+                st.image(_img, use_container_width=True)
+                if _pi < _n_pages - 1:
+                    st.markdown(
+                        "<div style='border-top:2px solid #e8e8e8; margin:6px 0;'></div>",
+                        unsafe_allow_html=True,
+                    )
+        except Exception as _e:
+            st.warning(f"Preview unavailable: {_e}. Use the Download button above.")
 
     st.markdown("---")
 
