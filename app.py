@@ -2224,12 +2224,26 @@ else:
         if _cls_col.button("Close preview", use_container_width=True):
             st.session_state.pop("_pdf_preview", None)
             st.rerun()
-        st.markdown(
-            f'<iframe src="data:application/pdf;base64,{_b64}" '
-            f'width="100%" height="900px" '
-            f'style="border:1px solid #e8e8e8; border-radius:4px; margin-top:8px;"></iframe>',
-            unsafe_allow_html=True,
-        )
+        # Use a JS Blob URL — Chrome blocks data: URIs in iframes
+        import streamlit.components.v1 as _components
+        _viewer_html = f"""
+<html><body style="margin:0;padding:0;overflow:hidden;">
+<script>
+(function(){{
+  var b64="{_b64}";
+  var bin=atob(b64);
+  var buf=new ArrayBuffer(bin.length);
+  var arr=new Uint8Array(buf);
+  for(var i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  var blob=new Blob([buf],{{type:"application/pdf"}});
+  var url=URL.createObjectURL(blob);
+  var f=document.createElement("iframe");
+  f.src=url; f.style.cssText="width:100%;height:890px;border:none;";
+  document.body.appendChild(f);
+}})();
+</script>
+</body></html>"""
+        _components.html(_viewer_html, height=900, scrolling=False)
 
     st.markdown("---")
 
