@@ -2878,392 +2878,398 @@ else:
         except Exception as _e:
             st.warning(f"Preview unavailable: {_e}. Use the Download button above.")
 
-    st.markdown("---")
+    # ── Two-panel editor layout ────────────────────────────────────────────────
+    _add_col, _blk_col = st.columns([1, 3], gap="large")
 
-    if not st.session_state.blocks:
+    # ════ LEFT PANEL — add blocks + library ══════════════════════════════════
+    with _add_col:
         st.markdown(
-            "<p style='color:#bbb; font-size:13px; padding:24px 0;'>"
-            "No blocks yet — use Add block below to start building your report."
-            "</p>",
+            "<p style='font-size:10px; letter-spacing:0.12em; text-transform:uppercase; "
+            "color:#6E6E73; font-weight:700; margin:12px 0 10px;'>Add block</p>",
             unsafe_allow_html=True,
         )
 
-    # -- Drag-to-reorder strip ------------------------------------------------
-    if len(st.session_state.blocks) > 1:
-        with st.expander("☰  Drag to reorder blocks", expanded=False):
-            _so_labels, _so_id_map = [], {}
-            for _si, _sb in enumerate(st.session_state.blocks, 1):
-                _icon = ICONS.get(_sb["type"], "□")
-                _txt  = _block_summary(_sb) or LABELS.get(_sb["type"], _sb["type"])
-                _lbl  = f"{_si:02d}  {_icon}  {_txt[:50]}"
-                _base, _n = _lbl, 1
-                while _lbl in _so_id_map:
-                    _lbl = f"{_base}  ·{_n}"
-                    _n  += 1
-                _so_id_map[_lbl] = _sb["id"]
-                _so_labels.append(_lbl)
-
-            _sorted_labels = _sort_items(_so_labels)
-            if _sorted_labels != _so_labels:
-                _blk_by_id = {b["id"]: b for b in st.session_state.blocks}
-                st.session_state.blocks = [
-                    _blk_by_id[_so_id_map[l]] for l in _sorted_labels
-                ]
+        # Content blocks — stacked full-width buttons
+        for _ql, _qt in zip(
+            ["+ Heading", "+ Paragraph", "+ Note", "+ Figure", "+ Page break"],
+            ["heading",   "text",        "note",   "figure",   "pagebreak"],
+        ):
+            if st.button(_ql, key=f"qa_{_qt}", use_container_width=True):
+                st.session_state.blocks.append(_default_block(_qt))
                 st.rerun()
 
-    to_delete = set()
+        st.markdown(
+            "<div style='border-top:1px solid #f0f0f0; margin:10px 0 8px;'></div>",
+            unsafe_allow_html=True,
+        )
 
-    _INLINE_TYPES = {"heading", "text", "note", "figure", "table", "pagebreak"}
-
-    for i, block in enumerate(st.session_state.blocks):
-        t = block["type"]
-
-        if t in _INLINE_TYPES:
-            # Per-block edit toggle — empty blocks start in edit mode
-            _ek = f"_blk_edit_{block['id']}"
-            if _ek not in st.session_state:
-                _auto_edit = (
-                    t in ("figure", "table")
-                    or not block.get("text", "").strip()
-                )
-                st.session_state[_ek] = _auto_edit
-            _editing = st.session_state[_ek]
-
-            # Columns: content | edit-toggle | delete
-            _bc, _tc, _dc = st.columns([15, 1, 1])
-
-            with _bc:
-                # ── HEADING ──────────────────────────────────────────────────
-                if t == "heading":
-                    if _editing:
-                        block["text"] = st.text_input(
-                            "", block.get("text", ""),
-                            key=f"il_h_{block['id']}",
-                            placeholder="Section heading…",
-                            label_visibility="collapsed",
-                        )
-                    else:
-                        _txt = block.get("text", "")
-                        _h_body = _txt if _txt else "<em style='color:#ccc'>Empty heading</em>"
-                        st.markdown(
-                            f"<p style='font-size:16px; font-weight:700; color:#1C1C1E; "
-                            f"margin:6px 0 2px; padding-bottom:4px; "
-                            f"border-bottom:1.5px solid #e8e8e8;'>{_h_body}</p>",
-                            unsafe_allow_html=True,
-                        )
-
-                # ── TEXT ─────────────────────────────────────────────────────
-                elif t == "text":
-                    if _editing:
-                        _tv = block.get("text", "")
-                        block["text"] = st.text_area(
-                            "", _tv,
-                            key=f"il_t_{block['id']}",
-                            placeholder="Paragraph text…",
-                            label_visibility="collapsed",
-                            height=max(80, min(400, _tv.count("\n") * 22 + 80)),
-                        )
-                    else:
-                        _txt = block.get("text", "").strip()
-                        if _txt:
-                            _html = _txt.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                            _html = _html.replace("\n\n", "</p><p style='margin:6px 0;'>").replace("\n", "<br>")
-                            st.markdown(
-                                f"<div style='font-size:13px; color:#1C1C1E; line-height:1.7; "
-                                f"padding:4px 0;'><p style='margin:0;'>{_html}</p></div>",
-                                unsafe_allow_html=True,
-                            )
-                        else:
-                            st.caption("_Empty paragraph — click ✏ to edit_")
-
-                # ── NOTE ─────────────────────────────────────────────────────
-                elif t == "note":
-                    if _editing:
-                        _nv = block.get("text", "")
-                        block["text"] = st.text_area(
-                            "", _nv,
-                            key=f"il_n_{block['id']}",
-                            placeholder="Note / placeholder text…",
-                            label_visibility="collapsed",
-                            height=max(80, min(300, _nv.count("\n") * 20 + 80)),
-                        )
-                    else:
-                        _txt = block.get("text", "").strip()
-                        _note_empty = "<em style='color:#c0886a;'>Empty note — click to edit</em>"
-                        _html = (_txt.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                                     .replace("\n", "<br>")
-                                 if _txt else _note_empty)
-                        st.markdown(
-                            f"<div style='border-left:3px solid #E74825; background:#FFF8F6; "
-                            f"padding:8px 12px; font-size:12px; color:#5A2800; "
-                            f"line-height:1.65; font-style:italic;'>{_html}</div>",
-                            unsafe_allow_html=True,
-                        )
-
-                # ── FIGURE ───────────────────────────────────────────────────
-                elif t == "figure":
-                    EDITORS["figure"](block)
-
-                # ── TABLE ────────────────────────────────────────────────────
-                elif t == "table":
-                    _tc_val = block.get("caption", "")
-                    if _editing:
-                        block["caption"] = st.text_input(
-                            "Caption", _tc_val,
-                            key=f"il_tc_{block['id']}",
-                            placeholder="Table 1.1 — …",
-                            label_visibility="collapsed",
-                        )
-                        _hdrs = block.get("headers", ["Column 1", "Column 2"])
-                        _hdrs_str = st.text_input(
-                            "Columns (pipe-separated)",
-                            " | ".join(_hdrs),
-                            key=f"il_th_{block['id']}",
-                            help="Separate column names with  |  e.g.  Name | Value | Unit",
-                        )
-                        _new_hdrs = [h.strip() for h in _hdrs_str.split("|") if h.strip()] or _hdrs
-                        _n = len(_new_hdrs)
-                        _rows = [(list(r) + [""] * _n)[:_n] for r in block.get("rows", [])]
-                        _df = (
-                            pd.DataFrame(_rows, columns=_new_hdrs)
-                            if _rows else pd.DataFrame(columns=_new_hdrs)
-                        )
-                        _edited = st.data_editor(
-                            _df, num_rows="dynamic", use_container_width=True,
-                            key=f"il_td_{block['id']}",
-                        )
-                        block["headers"] = list(_edited.columns)
-                        block["rows"] = [
-                            [str(c) if c is not None else "" for c in r]
-                            for r in _edited.values.tolist()
-                        ]
-                    else:
-                        if _tc_val:
-                            st.markdown(
-                                f"<p style='font-size:11px; color:#6E6E73; font-style:italic; "
-                                f"margin:4px 0 4px;'>{_tc_val}</p>",
-                                unsafe_allow_html=True,
-                            )
-                        _hdrs = block.get("headers", [])
-                        _rows = block.get("rows", [])
-                        if _hdrs:
-                            _df_v = (pd.DataFrame(_rows, columns=_hdrs)
-                                     if _rows else pd.DataFrame(columns=_hdrs))
-                            st.dataframe(_df_v, use_container_width=True, hide_index=True)
-                        else:
-                            st.caption("_Empty table — click ✏ to edit_")
-
-                # ── PAGE BREAK ───────────────────────────────────────────────
-                elif t == "pagebreak":
-                    st.markdown(
-                        "<p style='color:#AEAEB2; font-size:11px; text-align:center; "
-                        "border-top:1px dashed #ddd; border-bottom:1px dashed #ddd; "
-                        "padding:4px 0; margin:4px 0; letter-spacing:0.1em;'>"
-                        "PAGE BREAK</p>",
-                        unsafe_allow_html=True,
-                    )
-
-            # Edit toggle button
-            with _tc:
-                st.markdown("<div style='padding-top:20px;'>", unsafe_allow_html=True)
-                if t not in ("pagebreak", "figure"):
-                    if _editing:
-                        if st.button("✓", key=f"done_{block['id']}", help="Done editing"):
-                            st.session_state[_ek] = False
-                            st.rerun()
-                    else:
-                        if st.button("✏", key=f"edit_{block['id']}", help="Edit"):
-                            st.session_state[_ek] = True
-                            st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            # Delete button
-            with _dc:
-                st.markdown("<div style='padding-top:20px;'>", unsafe_allow_html=True)
-                if st.button("✕", key=f"del_{block['id']}", help="Delete"):
-                    to_delete.add(block["id"])
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown(
-                "<div style='border-bottom:1px solid #f0f0f0; margin:4px 0 10px;'></div>",
-                unsafe_allow_html=True,
-            )
-
-        else:
-            # ── Calculation block — expander ──────────────────────────────────
-            label   = LABELS.get(t, t)
-            summary = _block_summary(block)
-            header  = f"**{label}**" + (f"  —  {summary}" if summary else "")
-            with st.expander(header, expanded=(t == "custom_calc" and not summary)):
-                EDITORS[t](block)
-                st.markdown("")
-                _del_col, _ = st.columns([1, 7])
-                if _del_col.button("Delete", key=f"del_{block['id']}"):
-                    to_delete.add(block["id"])
-
-    if to_delete:
-        st.session_state.blocks = [b for b in st.session_state.blocks
-                                    if b["id"] not in to_delete]
-        st.rerun()
-
-    # Auto-save: runs on every Streamlit rerun while the editor is open,
-    # so all inline edits are persisted to the database continuously.
-    _save_active_project()
-
-    # ── Add block ─────────────────────────────────────────────────────────────
-    st.markdown("---")
-    st.markdown(
-        "<p style='font-size:11px; letter-spacing:0.08em; text-transform:uppercase; "
-        "color:#999; margin:0 0 8px;'>Add block</p>",
-        unsafe_allow_html=True,
-    )
-
-    # Quick-add row for the most common types
-    _qa_labels = ["+ Heading", "+ Paragraph", "+ Note", "+ Figure", "+ Page break"]
-    _qa_types  = ["heading",   "text",        "note",  "figure",   "pagebreak"]
-    _qa_cols   = st.columns(len(_qa_labels))
-    for _qc, _ql, _qt in zip(_qa_cols, _qa_labels, _qa_types):
-        if _qc.button(_ql, key=f"qa_{_qt}", use_container_width=True):
-            st.session_state.blocks.append(_default_block(_qt))
-            st.rerun()
-
-    # Full dropdown for calculation blocks
-    with st.expander("+ Calculation block"):
+        # Calculation blocks — dropdown + add button
+        _qa_types_set = {"heading", "text", "note", "figure", "pagebreak"}
         _calc_keys = [k for k in BLOCK_MENU
-                      if BLOCK_MENU[k] not in (None,) + tuple(_qa_types)]
-        _calc_cols = st.columns([4, 1])
-        _calc_sel  = _calc_cols[0].selectbox(
-            "Calculation type", _calc_keys,
+                      if BLOCK_MENU[k] not in (None,) + tuple(_qa_types_set)]
+        _calc_sel = st.selectbox(
+            "Calc type", _calc_keys,
             format_func=lambda k: k,
             label_visibility="collapsed",
             key="add_calc_select",
         )
-        if _calc_cols[1].button("Add", use_container_width=True, key="add_calc_btn"):
-            btype = BLOCK_MENU.get(_calc_sel)
-            if btype is not None:
-                st.session_state.blocks.append(_default_block(btype))
+        if st.button("+ Calculation block", key="add_calc_btn",
+                     use_container_width=True, type="primary"):
+            _btype = BLOCK_MENU.get(_calc_sel)
+            if _btype is not None:
+                st.session_state.blocks.append(_default_block(_btype))
                 st.rerun()
 
-    # ── Office calculation library ────────────────────────────────────────────
-    _lib_templates = _db.load_all_templates()
+        st.markdown(
+            "<div style='border-top:1px solid #f0f0f0; margin:10px 0 8px;'></div>",
+            unsafe_allow_html=True,
+        )
 
-    with st.expander(
-        f"Office library  ({len(_lib_templates)} saved)",
-        expanded=False,
-    ):
-        if not _lib_templates:
+        # Office library
+        _lib_templates = _db.load_all_templates()
+        with st.expander(f"Office library  ({len(_lib_templates)})", expanded=False):
+            if not _lib_templates:
+                st.caption("No templates saved yet.")
+            else:
+                for _tpl in _lib_templates:
+                    _by = _tpl.get("created_by", "")
+                    _at = _db.fmt_updated(_tpl.get("created_at", ""))
+                    _nb = len(_tpl.get("blocks", []))
+                    st.markdown(
+                        f"**{_tpl['name']}**  \n"
+                        f"<span style='font-size:10px; color:#6E6E73;'>"
+                        f"{_nb} blk"
+                        + (f" · {_tpl.get('description','')}" if _tpl.get("description") else "")
+                        + f" · {_at}</span>",
+                        unsafe_allow_html=True,
+                    )
+                    _ti1, _ti2 = st.columns([3, 1])
+                    if _ti1.button("Insert", key=f"lib_ins_{_tpl['id']}",
+                                   use_container_width=True):
+                        import copy as _copy, uuid as _uuid
+                        for _lb in _tpl["blocks"]:
+                            _new = _copy.deepcopy(_lb)
+                            _new["id"] = _uuid.uuid4().hex[:8]
+                            st.session_state.blocks.append(_new)
+                        st.rerun()
+                    if _ti2.button("✕", key=f"lib_del_{_tpl['id']}",
+                                   use_container_width=True, help="Remove from library"):
+                        _db.delete_template(_tpl["id"])
+                        st.rerun()
+
+        # Save to library
+        with st.expander("Save to library", expanded=False):
+            if not st.session_state.blocks:
+                st.caption("Add some blocks first.")
+            else:
+                st.caption(
+                    f"Save all {len(st.session_state.blocks)} blocks "
+                    "as a shared office template."
+                )
+                _lib_name = st.text_input(
+                    "Template name",
+                    placeholder="e.g. CLT deck",
+                    key="lib_save_name",
+                    label_visibility="collapsed",
+                )
+                _lib_desc = st.text_input(
+                    "Description",
+                    placeholder="optional",
+                    key="lib_save_desc",
+                    label_visibility="collapsed",
+                )
+                if st.button("Save", use_container_width=True,
+                             key="lib_save_btn", type="primary"):
+                    if not _lib_name.strip():
+                        st.warning("Enter a name.")
+                    else:
+                        _db.save_template(
+                            name        = _lib_name.strip(),
+                            description = _lib_desc.strip(),
+                            blocks      = st.session_state.blocks,
+                            user        = st.session_state.get("current_user", ""),
+                        )
+                        st.success(f"✓ Saved **{_lib_name}**")
+
+        # Organise as sub-documents (only when not already inside a subdoc)
+        if active_subdoc is None:
+            with st.expander("⊕  Sub-documents", expanded=False):
+                st.caption(
+                    "Split into A2.1, A2.2 … Each sub-document has its own "
+                    "block list and can be exported independently."
+                )
+                _sdo_first_name = st.text_input(
+                    "First sub-document",
+                    placeholder="e.g. Loads",
+                    key=f"sdo_first_{active_doc}",
+                    label_visibility="collapsed",
+                )
+                _sdo_second_name = st.text_input(
+                    "Second (optional)",
+                    placeholder="e.g. Elements",
+                    key=f"sdo_second_{active_doc}",
+                    label_visibility="collapsed",
+                )
+                if st.button("Create sub-documents", key=f"sdo_create_{active_doc}",
+                             type="primary", use_container_width=True):
+                    if not _sdo_first_name.strip():
+                        st.warning("Enter a title.")
+                    else:
+                        _doc_ref = st.session_state.documents[active_doc]
+                        _existing_blks = list(st.session_state.blocks)
+                        st.session_state.blocks = []
+                        _doc_ref["blocks"] = []
+                        _sd1 = {"name": _sdo_first_name.strip(), "blocks": _existing_blks}
+                        _doc_ref.setdefault("subdocs", []).append(_sd1)
+                        if _sdo_second_name.strip():
+                            _doc_ref["subdocs"].append(
+                                {"name": _sdo_second_name.strip(), "blocks": []}
+                            )
+                        st.rerun()
+
+    # ════ RIGHT PANEL — block list with inline ↑/↓/✕ ════════════════════════
+    with _blk_col:
+        if not st.session_state.blocks:
             st.markdown(
-                "<p style='color:#bbb; font-size:13px; padding:8px 0;'>"
-                "No templates saved yet — build a calculation below and save it "
-                "to share it with the whole office.</p>",
+                "<p style='color:#bbb; font-size:13px; padding:24px 0;'>"
+                "No blocks yet — use the panel on the left to start building."
+                "</p>",
                 unsafe_allow_html=True,
             )
-        else:
-            for _tpl in _lib_templates:
-                _tpl_c1, _tpl_c2, _tpl_c3 = st.columns([5, 1, 1])
-                _by  = _tpl.get("created_by", "")
-                _at  = _db.fmt_updated(_tpl.get("created_at", ""))
-                _nb  = len(_tpl.get("blocks", []))
-                _tpl_c1.markdown(
-                    f"**{_tpl['name']}**  \n"
-                    f"<span style='font-size:11px; color:#6E6E73;'>"
-                    f"{_nb} block{'s' if _nb != 1 else ''}"
-                    + (f" &nbsp;·&nbsp; {_tpl['description']}" if _tpl.get("description") else "")
-                    + (f" &nbsp;·&nbsp; {_by}" if _by else "")
-                    + f" &nbsp;·&nbsp; {_at}</span>",
+
+        to_delete = set()
+        _INLINE_TYPES = {"heading", "text", "note", "figure", "table", "pagebreak"}
+        _n_blks = len(st.session_state.blocks)
+
+        for i, block in enumerate(st.session_state.blocks):
+            t = block["type"]
+
+            if t in _INLINE_TYPES:
+                # Per-block edit toggle — empty blocks start in edit mode
+                _ek = f"_blk_edit_{block['id']}"
+                if _ek not in st.session_state:
+                    _auto_edit = (
+                        t in ("figure", "table")
+                        or not block.get("text", "").strip()
+                    )
+                    st.session_state[_ek] = _auto_edit
+                _editing = st.session_state[_ek]
+
+                # content | edit | ↑ | ↓ | ✕
+                _bc, _tc, _uc, _dnc, _dc = st.columns([14, 1, 1, 1, 1])
+
+                with _bc:
+                    # ── HEADING ──────────────────────────────────────────────
+                    if t == "heading":
+                        if _editing:
+                            block["text"] = st.text_input(
+                                "", block.get("text", ""),
+                                key=f"il_h_{block['id']}",
+                                placeholder="Section heading…",
+                                label_visibility="collapsed",
+                            )
+                        else:
+                            _txt = block.get("text", "")
+                            _h_body = _txt if _txt else "<em style='color:#ccc'>Empty heading</em>"
+                            st.markdown(
+                                f"<p style='font-size:16px; font-weight:700; color:#1C1C1E; "
+                                f"margin:6px 0 2px; padding-bottom:4px; "
+                                f"border-bottom:1.5px solid #e8e8e8;'>{_h_body}</p>",
+                                unsafe_allow_html=True,
+                            )
+
+                    # ── TEXT ─────────────────────────────────────────────────
+                    elif t == "text":
+                        if _editing:
+                            _tv = block.get("text", "")
+                            block["text"] = st.text_area(
+                                "", _tv,
+                                key=f"il_t_{block['id']}",
+                                placeholder="Paragraph text…",
+                                label_visibility="collapsed",
+                                height=max(80, min(400, _tv.count("\n") * 22 + 80)),
+                            )
+                        else:
+                            _txt = block.get("text", "").strip()
+                            if _txt:
+                                _html = _txt.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                                _html = _html.replace("\n\n", "</p><p style='margin:6px 0;'>").replace("\n", "<br>")
+                                st.markdown(
+                                    f"<div style='font-size:13px; color:#1C1C1E; line-height:1.7; "
+                                    f"padding:4px 0;'><p style='margin:0;'>{_html}</p></div>",
+                                    unsafe_allow_html=True,
+                                )
+                            else:
+                                st.caption("_Empty paragraph — click ✏ to edit_")
+
+                    # ── NOTE ─────────────────────────────────────────────────
+                    elif t == "note":
+                        if _editing:
+                            _nv = block.get("text", "")
+                            block["text"] = st.text_area(
+                                "", _nv,
+                                key=f"il_n_{block['id']}",
+                                placeholder="Note / placeholder text…",
+                                label_visibility="collapsed",
+                                height=max(80, min(300, _nv.count("\n") * 20 + 80)),
+                            )
+                        else:
+                            _txt = block.get("text", "").strip()
+                            _note_empty = "<em style='color:#c0886a;'>Empty note — click to edit</em>"
+                            _html = (_txt.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                                         .replace("\n", "<br>")
+                                     if _txt else _note_empty)
+                            st.markdown(
+                                f"<div style='border-left:3px solid #E74825; background:#FFF8F6; "
+                                f"padding:8px 12px; font-size:12px; color:#5A2800; "
+                                f"line-height:1.65; font-style:italic;'>{_html}</div>",
+                                unsafe_allow_html=True,
+                            )
+
+                    # ── FIGURE ───────────────────────────────────────────────
+                    elif t == "figure":
+                        EDITORS["figure"](block)
+
+                    # ── TABLE ────────────────────────────────────────────────
+                    elif t == "table":
+                        _tc_val = block.get("caption", "")
+                        if _editing:
+                            block["caption"] = st.text_input(
+                                "Caption", _tc_val,
+                                key=f"il_tc_{block['id']}",
+                                placeholder="Table 1.1 — …",
+                                label_visibility="collapsed",
+                            )
+                            _hdrs = block.get("headers", ["Column 1", "Column 2"])
+                            _hdrs_str = st.text_input(
+                                "Columns (pipe-separated)",
+                                " | ".join(_hdrs),
+                                key=f"il_th_{block['id']}",
+                                help="Separate column names with  |  e.g.  Name | Value | Unit",
+                            )
+                            _new_hdrs = [h.strip() for h in _hdrs_str.split("|") if h.strip()] or _hdrs
+                            _nh = len(_new_hdrs)
+                            _rows = [(list(r) + [""] * _nh)[:_nh] for r in block.get("rows", [])]
+                            _df = (
+                                pd.DataFrame(_rows, columns=_new_hdrs)
+                                if _rows else pd.DataFrame(columns=_new_hdrs)
+                            )
+                            _edited = st.data_editor(
+                                _df, num_rows="dynamic", use_container_width=True,
+                                key=f"il_td_{block['id']}",
+                            )
+                            block["headers"] = list(_edited.columns)
+                            block["rows"] = [
+                                [str(c) if c is not None else "" for c in r]
+                                for r in _edited.values.tolist()
+                            ]
+                        else:
+                            if _tc_val:
+                                st.markdown(
+                                    f"<p style='font-size:11px; color:#6E6E73; font-style:italic; "
+                                    f"margin:4px 0 4px;'>{_tc_val}</p>",
+                                    unsafe_allow_html=True,
+                                )
+                            _hdrs = block.get("headers", [])
+                            _rows = block.get("rows", [])
+                            if _hdrs:
+                                _df_v = (pd.DataFrame(_rows, columns=_hdrs)
+                                         if _rows else pd.DataFrame(columns=_hdrs))
+                                st.dataframe(_df_v, use_container_width=True, hide_index=True)
+                            else:
+                                st.caption("_Empty table — click ✏ to edit_")
+
+                    # ── PAGE BREAK ───────────────────────────────────────────
+                    elif t == "pagebreak":
+                        st.markdown(
+                            "<p style='color:#AEAEB2; font-size:11px; text-align:center; "
+                            "border-top:1px dashed #ddd; border-bottom:1px dashed #ddd; "
+                            "padding:4px 0; margin:4px 0; letter-spacing:0.1em;'>"
+                            "PAGE BREAK</p>",
+                            unsafe_allow_html=True,
+                        )
+
+                # Edit toggle
+                with _tc:
+                    st.markdown("<div style='padding-top:20px;'>", unsafe_allow_html=True)
+                    if t not in ("pagebreak", "figure"):
+                        if _editing:
+                            if st.button("✓", key=f"done_{block['id']}", help="Done editing"):
+                                st.session_state[_ek] = False
+                                st.rerun()
+                        else:
+                            if st.button("✏", key=f"edit_{block['id']}", help="Edit"):
+                                st.session_state[_ek] = True
+                                st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                # ↑ move up
+                with _uc:
+                    st.markdown("<div style='padding-top:20px;'>", unsafe_allow_html=True)
+                    if i > 0:
+                        if st.button("↑", key=f"up_{block['id']}", help="Move up"):
+                            _lst = st.session_state.blocks
+                            _lst[i], _lst[i - 1] = _lst[i - 1], _lst[i]
+                            st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                # ↓ move down
+                with _dnc:
+                    st.markdown("<div style='padding-top:20px;'>", unsafe_allow_html=True)
+                    if i < _n_blks - 1:
+                        if st.button("↓", key=f"dn_{block['id']}", help="Move down"):
+                            _lst = st.session_state.blocks
+                            _lst[i], _lst[i + 1] = _lst[i + 1], _lst[i]
+                            st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                # ✕ delete
+                with _dc:
+                    st.markdown("<div style='padding-top:20px;'>", unsafe_allow_html=True)
+                    if st.button("✕", key=f"del_{block['id']}", help="Delete"):
+                        to_delete.add(block["id"])
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                st.markdown(
+                    "<div style='border-bottom:1px solid #f0f0f0; margin:4px 0 10px;'></div>",
                     unsafe_allow_html=True,
                 )
-                if _tpl_c2.button("Insert", key=f"lib_ins_{_tpl['id']}",
-                                  use_container_width=True):
-                    import copy, uuid as _uuid
-                    for _lb in _tpl["blocks"]:
-                        _new = copy.deepcopy(_lb)
-                        _new["id"] = _uuid.uuid4().hex[:8]
-                        st.session_state.blocks.append(_new)
-                    st.rerun()
-                if _tpl_c3.button("Delete", key=f"lib_del_{_tpl['id']}",
-                                  use_container_width=True, help="Remove from library"):
-                    _db.delete_template(_tpl["id"])
-                    st.rerun()
 
-    # ── Save current document to office library ───────────────────────────────
-    st.markdown("---")
-    with st.expander("Save current blocks to office library", expanded=False):
-        if not st.session_state.blocks:
-            st.caption("Add some blocks first, then save them here.")
-        else:
-            st.markdown(
-                f"<p style='font-size:12px; color:#6E6E73; margin-bottom:8px;'>"
-                f"This will save all <b>{len(st.session_state.blocks)} blocks</b> in the "
-                f"current document as a reusable template anyone in the office can insert.</p>",
-                unsafe_allow_html=True,
-            )
-            _lib_c1, _lib_c2 = st.columns([3, 2])
-            _lib_name = _lib_c1.text_input(
-                "Template name",
-                placeholder="e.g. CLT deck — simpel bjælkemodel",
-                key="lib_save_name",
-                label_visibility="collapsed",
-            )
-            _lib_desc = _lib_c2.text_input(
-                "Short description (optional)",
-                placeholder="e.g. GL24h, simpel understøtning",
-                key="lib_save_desc",
-                label_visibility="collapsed",
-            )
-            if st.button("Save to office library", use_container_width=True,
-                         key="lib_save_btn", type="primary"):
-                if not _lib_name.strip():
-                    st.warning("Please enter a name for the template.")
-                else:
-                    _db.save_template(
-                        name        = _lib_name.strip(),
-                        description = _lib_desc.strip(),
-                        blocks      = st.session_state.blocks,
-                        user        = st.session_state.get("current_user", ""),
-                    )
-                    st.success(f"✓ Saved **{_lib_name}** to the office library.")
+            else:
+                # ── Calculation block — expander with ↑/↓/✕ beside it ────────
+                label   = LABELS.get(t, t)
+                summary = _block_summary(block)
+                header  = f"**{label}**" + (f"  —  {summary}" if summary else "")
+                _exp_c, _uc2, _dnc2, _dc2 = st.columns([20, 1, 1, 1])
+                with _exp_c:
+                    with st.expander(header, expanded=(t == "custom_calc" and not summary)):
+                        EDITORS[t](block)
+                with _uc2:
+                    st.markdown("<div style='padding-top:4px;'>", unsafe_allow_html=True)
+                    if i > 0:
+                        if st.button("↑", key=f"up_{block['id']}", help="Move up"):
+                            _lst = st.session_state.blocks
+                            _lst[i], _lst[i - 1] = _lst[i - 1], _lst[i]
+                            st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+                with _dnc2:
+                    st.markdown("<div style='padding-top:4px;'>", unsafe_allow_html=True)
+                    if i < _n_blks - 1:
+                        if st.button("↓", key=f"dn_{block['id']}", help="Move down"):
+                            _lst = st.session_state.blocks
+                            _lst[i], _lst[i + 1] = _lst[i + 1], _lst[i]
+                            st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+                with _dc2:
+                    st.markdown("<div style='padding-top:4px;'>", unsafe_allow_html=True)
+                    if st.button("✕", key=f"del_{block['id']}", help="Delete"):
+                        to_delete.add(block["id"])
+                    st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Organise as sub-documents — only shown in top-level doc (not in a subdoc)
-    if active_subdoc is None:
-        st.markdown("---")
-        with st.expander("⊕  Organise as sub-documents", expanded=False):
-            st.markdown(
-                "<p style='font-size:12px; color:#6E6E73; margin-bottom:10px;'>"
-                "Split this document into numbered sub-documents (e.g. A2.1, A2.2). "
-                "Each sub-document has its own block list and can be opened, edited, "
-                "and exported independently. Existing blocks are moved to the first "
-                "sub-document automatically.</p>",
-                unsafe_allow_html=True,
-            )
-            _sdo_c1, _sdo_c2 = st.columns([3, 2])
-            _sdo_first_name = _sdo_c1.text_input(
-                "Title for first sub-document",
-                placeholder="e.g. Loads, Beams, Foundations…",
-                key=f"sdo_first_{active_doc}",
-                label_visibility="collapsed",
-            )
-            _sdo_second_name = _sdo_c2.text_input(
-                "Title for second sub-document (optional)",
-                placeholder="e.g. Elements",
-                key=f"sdo_second_{active_doc}",
-                label_visibility="collapsed",
-            )
-            if st.button("Create sub-documents", key=f"sdo_create_{active_doc}",
-                         type="primary", use_container_width=True):
-                if not _sdo_first_name.strip():
-                    st.warning("Please enter a title for the first sub-document.")
-                else:
-                    # Flush current blocks to doc before reorganising
-                    _doc_ref = st.session_state.documents[active_doc]
-                    _doc_ref["blocks"] = list(st.session_state.blocks)
-                    st.session_state.blocks = []
-                    # Create first subdoc (adopts existing blocks) — inline to batch rerun
-                    _existing = list(_doc_ref.get("blocks", []))
-                    _sd1 = {"name": _sdo_first_name.strip(), "blocks": _existing}
-                    _doc_ref["blocks"] = []
-                    _doc_ref.setdefault("subdocs", []).append(_sd1)
-                    # Optionally create second subdoc immediately
-                    if _sdo_second_name.strip():
-                        _doc_ref["subdocs"].append({"name": _sdo_second_name.strip(), "blocks": []})
-                    st.rerun()
+        if to_delete:
+            st.session_state.blocks = [b for b in st.session_state.blocks
+                                        if b["id"] not in to_delete]
+            st.rerun()
+
+    # Auto-save — outside columns so it always fires on every rerun
+    _save_active_project()
