@@ -3,7 +3,7 @@ app.py — OMKREDS Structural Report Generator
 Local Streamlit web app.  Run with:  streamlit run app.py
 """
 
-import sys, math, io, os, tempfile, json
+import sys, math, io, os, tempfile, json, base64
 from datetime import date
 from pathlib import Path
 
@@ -297,6 +297,7 @@ def _close_document():
         st.session_state.documents[active]["blocks"] = list(st.session_state.blocks)
     st.session_state.active_doc = None
     st.session_state.blocks = []
+    st.session_state.pop("_pdf_preview", None)
     st.rerun()
 
 def _load_template(doc_id):
@@ -2032,7 +2033,7 @@ with st.sidebar:
     _proj_name = st.session_state.get("proj_ref", "report")
     _save_name = f"{_proj_name}.json".replace("/", "-").replace(" ", "_")
     st.download_button(
-        label            = "💾  Save project",
+        label            = "Save project",
         data             = _project_to_json(),
         file_name        = _save_name,
         mime             = "application/json",
@@ -2200,17 +2201,35 @@ else:
                     doc_project["title"] = f"{active_doc} — {doc_title}"
                     pdf_bytes = build_and_generate_pdf(doc_project, st.session_state.blocks)
                     _fname = f"{proj_ref}_{active_doc}.pdf".replace(" ", "_").replace("/", "-")
-                    st.download_button(
-                        label=f"Download  {_fname}",
-                        data=pdf_bytes,
-                        file_name=_fname,
-                        mime="application/pdf",
-                        use_container_width=True,
-                    )
+                    st.session_state["_pdf_preview"] = {"bytes": pdf_bytes, "fname": _fname}
+                    st.rerun()
                 except Exception as exc:
                     import traceback
                     st.error(f"PDF generation failed: {exc}")
                     st.code(traceback.format_exc())
+
+    # ── PDF inline preview ────────────────────────────────────────────────────
+    _pdf = st.session_state.get("_pdf_preview")
+    if _pdf:
+        st.markdown("---")
+        _b64 = base64.b64encode(_pdf["bytes"]).decode()
+        _dl_col, _cls_col, _ = st.columns([2, 1, 3])
+        _dl_col.download_button(
+            label     = f"Download  {_pdf['fname']}",
+            data      = _pdf["bytes"],
+            file_name = _pdf["fname"],
+            mime      = "application/pdf",
+            use_container_width = True,
+        )
+        if _cls_col.button("Close preview", use_container_width=True):
+            st.session_state.pop("_pdf_preview", None)
+            st.rerun()
+        st.markdown(
+            f'<iframe src="data:application/pdf;base64,{_b64}" '
+            f'width="100%" height="900px" '
+            f'style="border:1px solid #e8e8e8; border-radius:4px; margin-top:8px;"></iframe>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown("---")
 
