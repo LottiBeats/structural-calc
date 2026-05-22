@@ -225,6 +225,8 @@ if "current_user" not in st.session_state:
     st.session_state.current_user = ""
 if "active_subdoc" not in st.session_state:
     st.session_state.active_subdoc = None
+if "_add_panel_open" not in st.session_state:
+    st.session_state._add_panel_open = True
 
 # ── project-save / load helpers ───────────────────────────────────────────────
 
@@ -2878,154 +2880,166 @@ else:
         except Exception as _e:
             st.warning(f"Preview unavailable: {_e}. Use the Download button above.")
 
+    # ── Panel toggle ──────────────────────────────────────────────────────────
+    _show_panel = st.session_state.get("_add_panel_open", True)
+    _tgl_c, _ = st.columns([1, 8])
+    with _tgl_c:
+        _tgl_lbl = "◀ Hide panel" if _show_panel else "▶ Add block"
+        if st.button(_tgl_lbl, key="toggle_add_panel"):
+            st.session_state._add_panel_open = not _show_panel
+            st.rerun()
+
     # ── Two-panel editor layout ────────────────────────────────────────────────
-    _add_col, _blk_col = st.columns([1, 3], gap="large")
+    if _show_panel:
+        _add_col, _blk_col = st.columns([1, 3], gap="large")
+    else:
+        _blk_col = st.container()
 
     # ════ LEFT PANEL — add blocks + library ══════════════════════════════════
-    with _add_col:
-        st.markdown(
-            "<p style='font-size:10px; letter-spacing:0.12em; text-transform:uppercase; "
-            "color:#6E6E73; font-weight:700; margin:12px 0 10px;'>Add block</p>",
-            unsafe_allow_html=True,
-        )
+    if _show_panel:
+        with _add_col:
+            st.markdown(
+                "<p style='font-size:10px; letter-spacing:0.12em; text-transform:uppercase; "
+                "color:#6E6E73; font-weight:700; margin:12px 0 10px;'>Add block</p>",
+                unsafe_allow_html=True,
+            )
 
-        # Content blocks — stacked full-width buttons
-        for _ql, _qt in zip(
-            ["+ Heading", "+ Paragraph", "+ Note", "+ Figure", "+ Page break"],
-            ["heading",   "text",        "note",   "figure",   "pagebreak"],
-        ):
-            if st.button(_ql, key=f"qa_{_qt}", use_container_width=True):
-                st.session_state.blocks.append(_default_block(_qt))
-                st.rerun()
+            # Content blocks — stacked full-width buttons
+            for _ql, _qt in zip(
+                ["+ Heading", "+ Paragraph", "+ Note", "+ Figure", "+ Page break"],
+                ["heading",   "text",        "note",   "figure",   "pagebreak"],
+            ):
+                if st.button(_ql, key=f"qa_{_qt}", use_container_width=True):
+                    st.session_state.blocks.append(_default_block(_qt))
+                    st.rerun()
 
-        st.markdown(
-            "<div style='border-top:1px solid #f0f0f0; margin:10px 0 8px;'></div>",
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                "<div style='border-top:1px solid #f0f0f0; margin:10px 0 8px;'></div>",
+                unsafe_allow_html=True,
+            )
 
-        # Calculation blocks — dropdown + add button
-        _qa_types_set = {"heading", "text", "note", "figure", "pagebreak"}
-        _calc_keys = [k for k in BLOCK_MENU
-                      if BLOCK_MENU[k] not in (None,) + tuple(_qa_types_set)]
-        _calc_sel = st.selectbox(
-            "Calc type", _calc_keys,
-            format_func=lambda k: k,
-            label_visibility="collapsed",
-            key="add_calc_select",
-        )
-        if st.button("+ Calculation block", key="add_calc_btn",
-                     use_container_width=True, type="primary"):
-            _btype = BLOCK_MENU.get(_calc_sel)
-            if _btype is not None:
-                st.session_state.blocks.append(_default_block(_btype))
-                st.rerun()
+            # Calculation blocks — dropdown + add button
+            _qa_types_set = {"heading", "text", "note", "figure", "pagebreak"}
+            _calc_keys = [k for k in BLOCK_MENU
+                          if BLOCK_MENU[k] not in (None,) + tuple(_qa_types_set)]
+            _calc_sel = st.selectbox(
+                "Calc type", _calc_keys,
+                format_func=lambda k: k,
+                label_visibility="collapsed",
+                key="add_calc_select",
+            )
+            if st.button("+ Calculation block", key="add_calc_btn",
+                         use_container_width=True, type="primary"):
+                _btype = BLOCK_MENU.get(_calc_sel)
+                if _btype is not None:
+                    st.session_state.blocks.append(_default_block(_btype))
+                    st.rerun()
 
-        st.markdown(
-            "<div style='border-top:1px solid #f0f0f0; margin:10px 0 8px;'></div>",
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                "<div style='border-top:1px solid #f0f0f0; margin:10px 0 8px;'></div>",
+                unsafe_allow_html=True,
+            )
 
-        # Office library
-        _lib_templates = _db.load_all_templates()
-        with st.expander(f"Office library  ({len(_lib_templates)})", expanded=False):
-            if not _lib_templates:
-                st.caption("No templates saved yet.")
-            else:
-                for _tpl in _lib_templates:
-                    _by = _tpl.get("created_by", "")
-                    _at = _db.fmt_updated(_tpl.get("created_at", ""))
-                    _nb = len(_tpl.get("blocks", []))
-                    st.markdown(
-                        f"**{_tpl['name']}**  \n"
-                        f"<span style='font-size:10px; color:#6E6E73;'>"
-                        f"{_nb} blk"
-                        + (f" · {_tpl.get('description','')}" if _tpl.get("description") else "")
-                        + f" · {_at}</span>",
-                        unsafe_allow_html=True,
-                    )
-                    _ti1, _ti2 = st.columns([3, 1])
-                    if _ti1.button("Insert", key=f"lib_ins_{_tpl['id']}",
-                                   use_container_width=True):
-                        import copy as _copy, uuid as _uuid
-                        for _lb in _tpl["blocks"]:
-                            _new = _copy.deepcopy(_lb)
-                            _new["id"] = _uuid.uuid4().hex[:8]
-                            st.session_state.blocks.append(_new)
-                        st.rerun()
-                    if _ti2.button("✕", key=f"lib_del_{_tpl['id']}",
-                                   use_container_width=True, help="Remove from library"):
-                        _db.delete_template(_tpl["id"])
-                        st.rerun()
-
-        # Save to library
-        with st.expander("Save to library", expanded=False):
-            if not st.session_state.blocks:
-                st.caption("Add some blocks first.")
-            else:
-                st.caption(
-                    f"Save all {len(st.session_state.blocks)} blocks "
-                    "as a shared office template."
-                )
-                _lib_name = st.text_input(
-                    "Template name",
-                    placeholder="e.g. CLT deck",
-                    key="lib_save_name",
-                    label_visibility="collapsed",
-                )
-                _lib_desc = st.text_input(
-                    "Description",
-                    placeholder="optional",
-                    key="lib_save_desc",
-                    label_visibility="collapsed",
-                )
-                if st.button("Save", use_container_width=True,
-                             key="lib_save_btn", type="primary"):
-                    if not _lib_name.strip():
-                        st.warning("Enter a name.")
-                    else:
-                        _db.save_template(
-                            name        = _lib_name.strip(),
-                            description = _lib_desc.strip(),
-                            blocks      = st.session_state.blocks,
-                            user        = st.session_state.get("current_user", ""),
+            # Office library
+            _lib_templates = _db.load_all_templates()
+            with st.expander(f"Office library  ({len(_lib_templates)})", expanded=False):
+                if not _lib_templates:
+                    st.caption("No templates saved yet.")
+                else:
+                    for _tpl in _lib_templates:
+                        _at = _db.fmt_updated(_tpl.get("created_at", ""))
+                        _nb = len(_tpl.get("blocks", []))
+                        st.markdown(
+                            f"**{_tpl['name']}**  \n"
+                            f"<span style='font-size:10px; color:#6E6E73;'>"
+                            f"{_nb} blk"
+                            + (f" · {_tpl.get('description','')}" if _tpl.get("description") else "")
+                            + f" · {_at}</span>",
+                            unsafe_allow_html=True,
                         )
-                        st.success(f"✓ Saved **{_lib_name}**")
+                        _ti1, _ti2 = st.columns([3, 1])
+                        if _ti1.button("Insert", key=f"lib_ins_{_tpl['id']}",
+                                       use_container_width=True):
+                            import copy as _copy, uuid as _uuid
+                            for _lb in _tpl["blocks"]:
+                                _new = _copy.deepcopy(_lb)
+                                _new["id"] = _uuid.uuid4().hex[:8]
+                                st.session_state.blocks.append(_new)
+                            st.rerun()
+                        if _ti2.button("✕", key=f"lib_del_{_tpl['id']}",
+                                       use_container_width=True, help="Remove from library"):
+                            _db.delete_template(_tpl["id"])
+                            st.rerun()
 
-        # Organise as sub-documents (only when not already inside a subdoc)
-        if active_subdoc is None:
-            with st.expander("⊕  Sub-documents", expanded=False):
-                st.caption(
-                    "Split into A2.1, A2.2 … Each sub-document has its own "
-                    "block list and can be exported independently."
-                )
-                _sdo_first_name = st.text_input(
-                    "First sub-document",
-                    placeholder="e.g. Loads",
-                    key=f"sdo_first_{active_doc}",
-                    label_visibility="collapsed",
-                )
-                _sdo_second_name = st.text_input(
-                    "Second (optional)",
-                    placeholder="e.g. Elements",
-                    key=f"sdo_second_{active_doc}",
-                    label_visibility="collapsed",
-                )
-                if st.button("Create sub-documents", key=f"sdo_create_{active_doc}",
-                             type="primary", use_container_width=True):
-                    if not _sdo_first_name.strip():
-                        st.warning("Enter a title.")
-                    else:
-                        _doc_ref = st.session_state.documents[active_doc]
-                        _existing_blks = list(st.session_state.blocks)
-                        st.session_state.blocks = []
-                        _doc_ref["blocks"] = []
-                        _sd1 = {"name": _sdo_first_name.strip(), "blocks": _existing_blks}
-                        _doc_ref.setdefault("subdocs", []).append(_sd1)
-                        if _sdo_second_name.strip():
-                            _doc_ref["subdocs"].append(
-                                {"name": _sdo_second_name.strip(), "blocks": []}
+            # Save to library
+            with st.expander("Save to library", expanded=False):
+                if not st.session_state.blocks:
+                    st.caption("Add some blocks first.")
+                else:
+                    st.caption(
+                        f"Save all {len(st.session_state.blocks)} blocks "
+                        "as a shared office template."
+                    )
+                    _lib_name = st.text_input(
+                        "Template name",
+                        placeholder="e.g. CLT deck",
+                        key="lib_save_name",
+                        label_visibility="collapsed",
+                    )
+                    _lib_desc = st.text_input(
+                        "Description",
+                        placeholder="optional",
+                        key="lib_save_desc",
+                        label_visibility="collapsed",
+                    )
+                    if st.button("Save", use_container_width=True,
+                                 key="lib_save_btn", type="primary"):
+                        if not _lib_name.strip():
+                            st.warning("Enter a name.")
+                        else:
+                            _db.save_template(
+                                name        = _lib_name.strip(),
+                                description = _lib_desc.strip(),
+                                blocks      = st.session_state.blocks,
+                                user        = st.session_state.get("current_user", ""),
                             )
-                        st.rerun()
+                            st.success(f"✓ Saved **{_lib_name}**")
+
+            # Organise as sub-documents (only when not already inside a subdoc)
+            if active_subdoc is None:
+                with st.expander("⊕  Sub-documents", expanded=False):
+                    st.caption(
+                        "Split into A2.1, A2.2 … Each sub-document has its own "
+                        "block list and can be exported independently."
+                    )
+                    _sdo_first_name = st.text_input(
+                        "First sub-document",
+                        placeholder="e.g. Loads",
+                        key=f"sdo_first_{active_doc}",
+                        label_visibility="collapsed",
+                    )
+                    _sdo_second_name = st.text_input(
+                        "Second (optional)",
+                        placeholder="e.g. Elements",
+                        key=f"sdo_second_{active_doc}",
+                        label_visibility="collapsed",
+                    )
+                    if st.button("Create sub-documents", key=f"sdo_create_{active_doc}",
+                                 type="primary", use_container_width=True):
+                        if not _sdo_first_name.strip():
+                            st.warning("Enter a title.")
+                        else:
+                            _doc_ref = st.session_state.documents[active_doc]
+                            _existing_blks = list(st.session_state.blocks)
+                            st.session_state.blocks = []
+                            _doc_ref["blocks"] = []
+                            _sd1 = {"name": _sdo_first_name.strip(), "blocks": _existing_blks}
+                            _doc_ref.setdefault("subdocs", []).append(_sd1)
+                            if _sdo_second_name.strip():
+                                _doc_ref["subdocs"].append(
+                                    {"name": _sdo_second_name.strip(), "blocks": []}
+                                )
+                            st.rerun()
 
     # ════ RIGHT PANEL — block list with inline ↑/↓/✕ ════════════════════════
     with _blk_col:
@@ -3236,35 +3250,36 @@ else:
                 )
 
             else:
-                # ── Calculation block — expander with ↑/↓/✕ beside it ────────
+                # ── Calculation block — expander with ↑/↓/✕ as footer row ────
+                # NOTE: controls must live INSIDE the expander to avoid 3-level
+                # column nesting (_blk_col → columns → columns = forbidden).
                 label   = LABELS.get(t, t)
                 summary = _block_summary(block)
                 header  = f"**{label}**" + (f"  —  {summary}" if summary else "")
-                _exp_c, _uc2, _dnc2, _dc2 = st.columns([20, 1, 1, 1])
-                with _exp_c:
-                    with st.expander(header, expanded=(t == "custom_calc" and not summary)):
-                        EDITORS[t](block)
-                with _uc2:
-                    st.markdown("<div style='padding-top:4px;'>", unsafe_allow_html=True)
-                    if i > 0:
-                        if st.button("↑", key=f"up_{block['id']}", help="Move up"):
-                            _lst = st.session_state.blocks
-                            _lst[i], _lst[i - 1] = _lst[i - 1], _lst[i]
-                            st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                with _dnc2:
-                    st.markdown("<div style='padding-top:4px;'>", unsafe_allow_html=True)
-                    if i < _n_blks - 1:
-                        if st.button("↓", key=f"dn_{block['id']}", help="Move down"):
-                            _lst = st.session_state.blocks
-                            _lst[i], _lst[i + 1] = _lst[i + 1], _lst[i]
-                            st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                with _dc2:
-                    st.markdown("<div style='padding-top:4px;'>", unsafe_allow_html=True)
-                    if st.button("✕", key=f"del_{block['id']}", help="Delete"):
-                        to_delete.add(block["id"])
-                    st.markdown("</div>", unsafe_allow_html=True)
+                with st.expander(header, expanded=(t == "custom_calc" and not summary)):
+                    EDITORS[t](block)
+                    # ── reorder / delete row ──────────────────────────────────
+                    st.markdown(
+                        "<div style='margin-top:8px; padding-top:6px; "
+                        "border-top:1px solid #f0f0f0;'></div>",
+                        unsafe_allow_html=True,
+                    )
+                    _fc1, _fc2, _fc3, _ = st.columns([1, 1, 1, 10])
+                    with _fc1:
+                        if i > 0:
+                            if st.button("↑", key=f"up_{block['id']}", help="Move up"):
+                                _lst = st.session_state.blocks
+                                _lst[i], _lst[i - 1] = _lst[i - 1], _lst[i]
+                                st.rerun()
+                    with _fc2:
+                        if i < _n_blks - 1:
+                            if st.button("↓", key=f"dn_{block['id']}", help="Move down"):
+                                _lst = st.session_state.blocks
+                                _lst[i], _lst[i + 1] = _lst[i + 1], _lst[i]
+                                st.rerun()
+                    with _fc3:
+                        if st.button("Delete", key=f"del_{block['id']}"):
+                            to_delete.add(block["id"])
 
         if to_delete:
             st.session_state.blocks = [b for b in st.session_state.blocks
