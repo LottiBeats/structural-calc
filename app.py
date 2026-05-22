@@ -1965,13 +1965,14 @@ def edit_custom_calc(block):
         itype = item.get("type", "text")
         badge_txt, badge_color = _BADGE.get(itype, ("???", "#999"))
 
-        # control strip: up / down / badge / [content] / delete
-        _up_c, _dn_c, _bg_c, _ct_c, _dl_c = st.columns([1, 1, 1, 16, 1])
-
+        # Control strip: up / down / badge / delete
+        # IMPORTANT: no content column here — content is rendered separately below
+        # so it can create its own columns without hitting the 2-level nesting limit.
+        _up_c, _dn_c, _bg_c, _dl_c = st.columns([1, 1, 14, 1])
         _bg_c.markdown(
             f"<div style='background:{badge_color}; color:white; font-size:9px; "
             f"font-weight:700; letter-spacing:0.05em; padding:3px 5px; "
-            f"border-radius:3px; margin-top:8px; text-align:center;'>"
+            f"border-radius:3px; margin-top:8px; display:inline-block;'>"
             f"{badge_txt}</div>",
             unsafe_allow_html=True,
         )
@@ -1983,123 +1984,123 @@ def edit_custom_calc(block):
         if _dl_c.button("✕", key=_uid(block, f"xdel{idx}"), help="Remove"):
             to_delete = idx
 
-        with _ct_c:
-            if itype == "text":
-                item["content"] = st.text_area(
-                    "Text", item.get("content", ""), height=80,
-                    key=_uid(block, f"txt{idx}"),
-                    label_visibility="collapsed",
-                    placeholder="Assumptions, description, references...",
-                )
+        # Content — NOT inside any column, so it can freely use st.columns at level 1
+        if itype == "text":
+            item["content"] = st.text_area(
+                "Text", item.get("content", ""), height=80,
+                key=_uid(block, f"txt{idx}"),
+                label_visibility="collapsed",
+                placeholder="Assumptions, description, references...",
+            )
 
-            elif itype == "var":
-                _vc1, _vc2, _vc3 = st.columns([3, 2, 2])
-                item["name"]  = _vc1.text_input(
-                    "Name", item.get("name", ""), key=_uid(block, f"vn{idx}"),
-                    label_visibility="collapsed", placeholder="e.g. g_k")
-                item["value"] = _vc2.number_input(
-                    "Value", value=float(item.get("value", 0.0)),
-                    key=_uid(block, f"vv{idx}"), label_visibility="collapsed",
-                    format="%.4g")
-                _cur_unit = item.get("unit", "-")
-                if _cur_unit not in UNIT_CHOICES:
-                    _cur_unit = "-"
-                item["unit"] = _vc3.selectbox(
-                    "Unit", UNIT_CHOICES,
-                    index=UNIT_CHOICES.index(_cur_unit),
-                    key=_uid(block, f"vu{idx}"),
-                    label_visibility="collapsed",
-                    format_func=lambda u: UNIT_LABELS.get(u, u))
+        elif itype == "var":
+            _vc1, _vc2, _vc3 = st.columns([3, 2, 2])
+            item["name"]  = _vc1.text_input(
+                "Name", item.get("name", ""), key=_uid(block, f"vn{idx}"),
+                label_visibility="collapsed", placeholder="e.g. g_k")
+            item["value"] = _vc2.number_input(
+                "Value", value=float(item.get("value", 0.0)),
+                key=_uid(block, f"vv{idx}"), label_visibility="collapsed",
+                format="%.4g")
+            _cur_unit = item.get("unit", "-")
+            if _cur_unit not in UNIT_CHOICES:
+                _cur_unit = "-"
+            item["unit"] = _vc3.selectbox(
+                "Unit", UNIT_CHOICES,
+                index=UNIT_CHOICES.index(_cur_unit),
+                key=_uid(block, f"vu{idx}"),
+                label_visibility="collapsed",
+                format_func=lambda u: UNIT_LABELS.get(u, u))
 
-            elif itype == "formula":
-                item["expr"] = st.text_input(
-                    "Formula", item.get("expr", ""),
-                    key=_uid(block, f"fml{idx}"),
-                    label_visibility="collapsed",
-                    placeholder="e.g.  F_Ed = g_k * L   or   sigma = F_Ed / A")
-                # inline result
-                _expr = item.get("expr", "").strip()
-                if _expr and "=" in _expr:
-                    _lhs = _expr.split("=")[0].strip()
-                    if _lhs in ns:
-                        _res = fmt_qty(ns[_lhs])
-                        st.markdown(
-                            f"<span style='font-size:12px; color:#12788E; "
-                            f"font-family:monospace;'>→ {_lhs} = {_res}</span>",
-                            unsafe_allow_html=True,
-                        )
+        elif itype == "formula":
+            item["expr"] = st.text_input(
+                "Formula", item.get("expr", ""),
+                key=_uid(block, f"fml{idx}"),
+                label_visibility="collapsed",
+                placeholder="e.g.  F_Ed = g_k * L   or   sigma = F_Ed / A")
+            # inline result
+            _expr = item.get("expr", "").strip()
+            if _expr and "=" in _expr:
+                _lhs = _expr.split("=")[0].strip()
+                if _lhs in ns:
+                    _res = fmt_qty(ns[_lhs])
+                    st.markdown(
+                        f"<span style='font-size:12px; color:#12788E; "
+                        f"font-family:monospace;'>→ {_lhs} = {_res}</span>",
+                        unsafe_allow_html=True,
+                    )
 
-            elif itype == "figure":
-                import glob as _glob
-                _fig_dir  = BASE_DIR / "figures"
-                _all_imgs = sorted(_glob.glob(str(_fig_dir / "*")))
-                _img_names = [Path(p).name for p in _all_imgs]
-                _fc1, _fc2 = st.columns([3, 2])
-                if _img_names:
-                    _cur_name = Path(item.get("path", "")).name
-                    _sel_idx  = (_img_names.index(_cur_name)
-                                 if _cur_name in _img_names else 0)
-                    _chosen = _fc1.selectbox(
-                        "Figure", _img_names, index=_sel_idx,
-                        key=_uid(block, f"figsel{idx}"),
-                        label_visibility="collapsed")
-                    item["path"] = str(_fig_dir / _chosen)
-                else:
-                    _fc1.caption("No images found in figures/ folder")
-                item["caption"] = _fc2.text_input(
-                    "Caption", item.get("caption", ""),
-                    key=_uid(block, f"figcap{idx}"),
-                    label_visibility="collapsed",
-                    placeholder="Caption text")
-                item["width"] = st.select_slider(
-                    "Width", options=["third", "half", "full"],
-                    value=item.get("width", "full"),
-                    key=_uid(block, f"figw{idx}"))
-                _fp = item.get("path", "")
-                if _fp and Path(_fp).exists():
-                    st.image(Path(_fp).read_bytes(), width=180)
-
-            elif itype == "check":
-                _cc1, _cc2, _cc3, _cc4 = st.columns([3, 3, 2, 2])
-                item["label"]    = _cc1.text_input(
-                    "Label", item.get("label", "Check"),
-                    key=_uid(block, f"cl{idx}"),
-                    label_visibility="collapsed", placeholder="Check label")
-                item["demand"]   = _cc2.text_input(
-                    "Demand", item.get("demand", ""),
-                    key=_uid(block, f"cd{idx}"),
-                    label_visibility="collapsed",
-                    placeholder="demand expr e.g. sigma")
-                item["capacity"] = _cc3.number_input(
-                    "Capacity", float(item.get("capacity", 1.0)),
-                    key=_uid(block, f"cc{idx}"),
+        elif itype == "figure":
+            import glob as _glob
+            _fig_dir  = BASE_DIR / "figures"
+            _all_imgs = sorted(_glob.glob(str(_fig_dir / "*")))
+            _img_names = [Path(p).name for p in _all_imgs]
+            _fc1, _fc2 = st.columns([3, 2])
+            if _img_names:
+                _cur_name = Path(item.get("path", "")).name
+                _sel_idx  = (_img_names.index(_cur_name)
+                             if _cur_name in _img_names else 0)
+                _chosen = _fc1.selectbox(
+                    "Figure", _img_names, index=_sel_idx,
+                    key=_uid(block, f"figsel{idx}"),
                     label_visibility="collapsed")
-                _chk_unit = item.get("unit", "-")
-                if _chk_unit not in UNIT_CHOICES:
-                    _chk_unit = "-"
-                item["unit"] = _cc4.selectbox(
-                    "Unit", UNIT_CHOICES,
-                    index=UNIT_CHOICES.index(_chk_unit),
-                    key=_uid(block, f"cu{idx}"),
-                    label_visibility="collapsed",
-                    format_func=lambda u: UNIT_LABELS.get(u, u))
-                # inline check result
-                _dexpr = item.get("demand", "").strip()
-                if _dexpr:
-                    try:
-                        _dem = eval(_dexpr, _UNIT_NS, ns)
-                        _cap = parse_qty(float(item["capacity"]), item["unit"])
-                        _rat = float(_dem / _cap)
-                        _col = "#27AE60" if _rat <= 1.0 else "#E74825"
-                        _lbl = "✓ OK" if _rat <= 1.0 else "✗ FAIL"
-                        st.markdown(
-                            f"<span style='font-size:12px; color:{_col}; "
-                            f"font-family:monospace;'>"
-                            f"→ {_rat:.3f}  {_lbl}</span>",
-                            unsafe_allow_html=True,
-                        )
-                    except Exception:
-                        pass
+                item["path"] = str(_fig_dir / _chosen)
+            else:
+                _fc1.caption("No images found in figures/ folder")
+            item["caption"] = _fc2.text_input(
+                "Caption", item.get("caption", ""),
+                key=_uid(block, f"figcap{idx}"),
+                label_visibility="collapsed",
+                placeholder="Caption text")
+            item["width"] = st.select_slider(
+                "Width", options=["third", "half", "full"],
+                value=item.get("width", "full"),
+                key=_uid(block, f"figw{idx}"))
+            _fp = item.get("path", "")
+            if _fp and Path(_fp).exists():
+                st.image(Path(_fp).read_bytes(), width=180)
+
+        elif itype == "check":
+            _cc1, _cc2, _cc3, _cc4 = st.columns([3, 3, 2, 2])
+            item["label"]    = _cc1.text_input(
+                "Label", item.get("label", "Check"),
+                key=_uid(block, f"cl{idx}"),
+                label_visibility="collapsed", placeholder="Check label")
+            item["demand"]   = _cc2.text_input(
+                "Demand", item.get("demand", ""),
+                key=_uid(block, f"cd{idx}"),
+                label_visibility="collapsed",
+                placeholder="demand expr e.g. sigma")
+            item["capacity"] = _cc3.number_input(
+                "Capacity", float(item.get("capacity", 1.0)),
+                key=_uid(block, f"cc{idx}"),
+                label_visibility="collapsed")
+            _chk_unit = item.get("unit", "-")
+            if _chk_unit not in UNIT_CHOICES:
+                _chk_unit = "-"
+            item["unit"] = _cc4.selectbox(
+                "Unit", UNIT_CHOICES,
+                index=UNIT_CHOICES.index(_chk_unit),
+                key=_uid(block, f"cu{idx}"),
+                label_visibility="collapsed",
+                format_func=lambda u: UNIT_LABELS.get(u, u))
+            # inline check result
+            _dexpr = item.get("demand", "").strip()
+            if _dexpr:
+                try:
+                    _dem = eval(_dexpr, _UNIT_NS, ns)
+                    _cap = parse_qty(float(item["capacity"]), item["unit"])
+                    _rat = float(_dem / _cap)
+                    _col = "#27AE60" if _rat <= 1.0 else "#E74825"
+                    _lbl = "✓ OK" if _rat <= 1.0 else "✗ FAIL"
+                    st.markdown(
+                        f"<span style='font-size:12px; color:{_col}; "
+                        f"font-family:monospace;'>"
+                        f"→ {_rat:.3f}  {_lbl}</span>",
+                        unsafe_allow_html=True,
+                    )
+                except Exception:
+                    pass
 
         st.markdown(
             "<div style='border-bottom:1px solid #f0f0f0; margin:2px 0 6px;'></div>",
@@ -2202,101 +2203,102 @@ def edit_fem_beam(block):
     new_loads = []
     for li, load in enumerate(loads):
         ltype    = load.get("type", "udl")
-        lc0, lc_rest, lc_del = st.columns([2, 7, 1])
+        # Control row: type selector + Remove button — no content column
+        # Content is rendered separately below so it can use its own st.columns at level 1
+        lc0, lc_del = st.columns([3, 1])
         new_type = lc0.selectbox("Type", LOAD_TYPES,
                                   index=LOAD_TYPES.index(ltype),
                                   key=_uid(block, f"ltype{li}"),
                                   label_visibility="collapsed",
                                   format_func=lambda t: LOAD_LABELS[t])
         load["type"] = new_type
-
-        with lc_rest:
-            if new_type == "udl":
-                # Visible column headers
-                h1,h2,h3,h4,h5,h6 = st.columns(6)
-                h1.caption("g_k  [kN/m]")
-                h2.caption("q_k  [kN/m]")
-                h3.caption("γ_G")
-                h4.caption("γ_Q")
-                h5.caption("x₁  [m]")
-                h6.caption("x₂  [m]")
-                u1,u2,u3,u4,u5,u6 = st.columns(6)
-                load["g_k_kNm"] = u1.number_input("g_k", value=float(load.get("g_k_kNm", 5.0)),
-                                                   key=_uid(block, f"lgk{li}"),
-                                                   label_visibility="collapsed")
-                load["q_k_kNm"] = u2.number_input("q_k", value=float(load.get("q_k_kNm", 3.0)),
-                                                   key=_uid(block, f"lqk{li}"),
-                                                   label_visibility="collapsed")
-                load["gamma_G"] = u3.number_input("γ_G", value=float(load.get("gamma_G", 1.35)),
-                                                   key=_uid(block, f"lgG{li}"),
-                                                   label_visibility="collapsed")
-                load["gamma_Q"] = u4.number_input("γ_Q", value=float(load.get("gamma_Q", 1.50)),
-                                                   key=_uid(block, f"lgQ{li}"),
-                                                   label_visibility="collapsed")
-                load["x1_m"]   = u5.number_input("x1",  value=float(load.get("x1_m", 0.0)),
-                                                   key=_uid(block, f"lx1{li}"),
-                                                   label_visibility="collapsed")
-                load["x2_m"]   = u6.number_input("x2",  value=float(load.get("x2_m", d["span_m"])),
-                                                   key=_uid(block, f"lx2{li}"),
-                                                   label_visibility="collapsed")
-                w_Ed = load["gamma_G"] * load["g_k_kNm"] + load["gamma_Q"] * load["q_k_kNm"]
-                st.caption(
-                    f"w_Ed = {load['gamma_G']}×{load['g_k_kNm']} "
-                    f"+ {load['gamma_Q']}×{load['q_k_kNm']} = **{w_Ed:.3f} kN/m**"
-                )
-
-            elif new_type == "point":
-                ph1, ph2 = st.columns(2)
-                ph1.caption("P_Ed  [kN]  (design load)")
-                ph2.caption("Position  x  [m]")
-                p1, p2 = st.columns(2)
-                load["P_Ed_kN"] = p1.number_input("P_Ed [kN]",
-                                                   value=float(load.get("P_Ed_kN", 10.0)),
-                                                   key=_uid(block, f"lP{li}"),
-                                                   label_visibility="collapsed")
-                load["x_m"]     = p2.number_input("x [m]",
-                                                   value=float(load.get("x_m", d["span_m"] / 2)),
-                                                   key=_uid(block, f"lpx{li}"),
-                                                   label_visibility="collapsed")
-
-            elif new_type == "trapezoidal":
-                # Two rows of headers for 8 narrow columns
-                th1,th2,th3,th4,th5,th6,th7,th8 = st.columns(8)
-                th1.caption("g_k₁ [kN/m]")
-                th2.caption("q_k₁ [kN/m]")
-                th3.caption("g_k₂ [kN/m]")
-                th4.caption("q_k₂ [kN/m]")
-                th5.caption("γ_G")
-                th6.caption("γ_Q")
-                th7.caption("x₁ [m]")
-                th8.caption("x₂ [m]")
-                t1,t2,t3,t4,t5,t6,t7,t8 = st.columns(8)
-                load["g_k1_kNm"] = t1.number_input("g_k1", value=float(load.get("g_k1_kNm", 5.0)),
-                                                    key=_uid(block, f"lgk1{li}"),
-                                                    label_visibility="collapsed")
-                load["q_k1_kNm"] = t2.number_input("q_k1", value=float(load.get("q_k1_kNm", 3.0)),
-                                                    key=_uid(block, f"lqk1{li}"),
-                                                    label_visibility="collapsed")
-                load["g_k2_kNm"] = t3.number_input("g_k2", value=float(load.get("g_k2_kNm", 0.0)),
-                                                    key=_uid(block, f"lgk2{li}"),
-                                                    label_visibility="collapsed")
-                load["q_k2_kNm"] = t4.number_input("q_k2", value=float(load.get("q_k2_kNm", 0.0)),
-                                                    key=_uid(block, f"lqk2{li}"),
-                                                    label_visibility="collapsed")
-                load["gamma_G"]  = t5.number_input("γ_G",  value=float(load.get("gamma_G", 1.35)),
-                                                    key=_uid(block, f"ltgG{li}"),
-                                                    label_visibility="collapsed")
-                load["gamma_Q"]  = t6.number_input("γ_Q",  value=float(load.get("gamma_Q", 1.50)),
-                                                    key=_uid(block, f"ltgQ{li}"),
-                                                    label_visibility="collapsed")
-                load["x1_m"]     = t7.number_input("x1",   value=float(load.get("x1_m", 0.0)),
-                                                    key=_uid(block, f"ltx1{li}"),
-                                                    label_visibility="collapsed")
-                load["x2_m"]     = t8.number_input("x2",   value=float(load.get("x2_m", d["span_m"])),
-                                                    key=_uid(block, f"ltx2{li}"),
-                                                    label_visibility="collapsed")
-
         keep = not lc_del.button("Remove", key=_uid(block, f"ldel{li}"))
+
+        # Load parameters — outside any column, free to use st.columns at level 1
+        if new_type == "udl":
+            # Visible column headers
+            h1,h2,h3,h4,h5,h6 = st.columns(6)
+            h1.caption("g_k  [kN/m]")
+            h2.caption("q_k  [kN/m]")
+            h3.caption("γ_G")
+            h4.caption("γ_Q")
+            h5.caption("x₁  [m]")
+            h6.caption("x₂  [m]")
+            u1,u2,u3,u4,u5,u6 = st.columns(6)
+            load["g_k_kNm"] = u1.number_input("g_k", value=float(load.get("g_k_kNm", 5.0)),
+                                               key=_uid(block, f"lgk{li}"),
+                                               label_visibility="collapsed")
+            load["q_k_kNm"] = u2.number_input("q_k", value=float(load.get("q_k_kNm", 3.0)),
+                                               key=_uid(block, f"lqk{li}"),
+                                               label_visibility="collapsed")
+            load["gamma_G"] = u3.number_input("γ_G", value=float(load.get("gamma_G", 1.35)),
+                                               key=_uid(block, f"lgG{li}"),
+                                               label_visibility="collapsed")
+            load["gamma_Q"] = u4.number_input("γ_Q", value=float(load.get("gamma_Q", 1.50)),
+                                               key=_uid(block, f"lgQ{li}"),
+                                               label_visibility="collapsed")
+            load["x1_m"]   = u5.number_input("x1",  value=float(load.get("x1_m", 0.0)),
+                                               key=_uid(block, f"lx1{li}"),
+                                               label_visibility="collapsed")
+            load["x2_m"]   = u6.number_input("x2",  value=float(load.get("x2_m", d["span_m"])),
+                                               key=_uid(block, f"lx2{li}"),
+                                               label_visibility="collapsed")
+            w_Ed = load["gamma_G"] * load["g_k_kNm"] + load["gamma_Q"] * load["q_k_kNm"]
+            st.caption(
+                f"w_Ed = {load['gamma_G']}×{load['g_k_kNm']} "
+                f"+ {load['gamma_Q']}×{load['q_k_kNm']} = **{w_Ed:.3f} kN/m**"
+            )
+
+        elif new_type == "point":
+            ph1, ph2 = st.columns(2)
+            ph1.caption("P_Ed  [kN]  (design load)")
+            ph2.caption("Position  x  [m]")
+            p1, p2 = st.columns(2)
+            load["P_Ed_kN"] = p1.number_input("P_Ed [kN]",
+                                               value=float(load.get("P_Ed_kN", 10.0)),
+                                               key=_uid(block, f"lP{li}"),
+                                               label_visibility="collapsed")
+            load["x_m"]     = p2.number_input("x [m]",
+                                               value=float(load.get("x_m", d["span_m"] / 2)),
+                                               key=_uid(block, f"lpx{li}"),
+                                               label_visibility="collapsed")
+
+        elif new_type == "trapezoidal":
+            th1,th2,th3,th4,th5,th6,th7,th8 = st.columns(8)
+            th1.caption("g_k₁ [kN/m]")
+            th2.caption("q_k₁ [kN/m]")
+            th3.caption("g_k₂ [kN/m]")
+            th4.caption("q_k₂ [kN/m]")
+            th5.caption("γ_G")
+            th6.caption("γ_Q")
+            th7.caption("x₁ [m]")
+            th8.caption("x₂ [m]")
+            t1,t2,t3,t4,t5,t6,t7,t8 = st.columns(8)
+            load["g_k1_kNm"] = t1.number_input("g_k1", value=float(load.get("g_k1_kNm", 5.0)),
+                                                key=_uid(block, f"lgk1{li}"),
+                                                label_visibility="collapsed")
+            load["q_k1_kNm"] = t2.number_input("q_k1", value=float(load.get("q_k1_kNm", 3.0)),
+                                                key=_uid(block, f"lqk1{li}"),
+                                                label_visibility="collapsed")
+            load["g_k2_kNm"] = t3.number_input("g_k2", value=float(load.get("g_k2_kNm", 0.0)),
+                                                key=_uid(block, f"lgk2{li}"),
+                                                label_visibility="collapsed")
+            load["q_k2_kNm"] = t4.number_input("q_k2", value=float(load.get("q_k2_kNm", 0.0)),
+                                                key=_uid(block, f"lqk2{li}"),
+                                                label_visibility="collapsed")
+            load["gamma_G"]  = t5.number_input("γ_G",  value=float(load.get("gamma_G", 1.35)),
+                                                key=_uid(block, f"ltgG{li}"),
+                                                label_visibility="collapsed")
+            load["gamma_Q"]  = t6.number_input("γ_Q",  value=float(load.get("gamma_Q", 1.50)),
+                                                key=_uid(block, f"ltgQ{li}"),
+                                                label_visibility="collapsed")
+            load["x1_m"]     = t7.number_input("x1",   value=float(load.get("x1_m", 0.0)),
+                                                key=_uid(block, f"ltx1{li}"),
+                                                label_visibility="collapsed")
+            load["x2_m"]     = t8.number_input("x2",   value=float(load.get("x2_m", d["span_m"])),
+                                                key=_uid(block, f"ltx2{li}"),
+                                                label_visibility="collapsed")
+
         if keep:
             new_loads.append(load)
     d["loads"] = new_loads
