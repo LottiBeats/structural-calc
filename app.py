@@ -14,12 +14,22 @@ import matplotlib.pyplot as plt
 
 import streamlit as st
 
+# Streamlit < 1.27 uses experimental_rerun; >= 1.27 uses rerun
+if not hasattr(st, "rerun"):
+    st.rerun = st.experimental_rerun
+
 BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
+import db as _db
+_db.init_db()
+
 # â"€â"€ units â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 import forallpeople as si
-si.environment("structural", top_level=True)
+try:
+    si.environment("structural", top_level=True)
+except KeyError:
+    pass
 
 import builtins as _builtins
 # Snapshot the forallpeople unit names so custom-calc eval can find them
@@ -32,7 +42,8 @@ _UNIT_NS.update({
 })
 
 # â"€â"€ calc modules â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-from calc_core import (COVER, TOC, PAGEBREAK, H1, T, N as NOTE, FIG,
+import pandas as pd
+from calc_core import (COVER, TOC, PAGEBREAK, H1, T, N as NOTE, FIG, TBL,
                        CheckContext, S, CALC_ROW)
 from holst_layout import generate_pdf_holst
 from beam_fem import BeamFEM, summarise_beam_actions
@@ -97,6 +108,7 @@ BLOCK_MENU = {
     "Paragraph text": "text",
     "Note / warning": "note",
     "Figure / image": "figure",
+    "Table": "table",
     "— Layout —": None,
     "Page break": "pagebreak",
 }
@@ -206,9 +218,11 @@ if "active_doc" not in st.session_state:
 if "documents" not in st.session_state:
     st.session_state.documents = _empty_documents()
 if "projects" not in st.session_state:
-    st.session_state.projects = []
+    st.session_state.projects = _db.load_all_projects()
 if "active_project_id" not in st.session_state:
     st.session_state.active_project_id = None
+if "current_user" not in st.session_state:
+    st.session_state.current_user = ""
 
 # ── project-save / load helpers ───────────────────────────────────────────────
 
@@ -275,6 +289,10 @@ def _apply_loaded_project(data: dict):
     st.session_state.active_project_id = None
     st.session_state.active_doc = None
     st.session_state.blocks = []
+    # Persist all imported projects to the database
+    _user = st.session_state.get("current_user", "")
+    for _p in st.session_state.projects:
+        _db.save_project(_p, user=_user)
 
 # Handle a pending load triggered in a previous run
 if "_pending_load" in st.session_state:
@@ -348,6 +366,8 @@ def _save_active_project():
               "blocks": list(st.session_state.documents[did]["blocks"])}
         for did in DOC_DEFS
     }
+    # Persist to database (fast — <1 ms for typical project sizes)
+    _db.save_project(proj, user=st.session_state.get("current_user", ""))
 
 def _new_project(name="New Project", ref=""):
     import uuid as _uuid
@@ -495,12 +515,8 @@ def _default_block(btype):
         }
     elif btype == "custom_calc":
         base["data"] = {
-            "title":"Custom Calculation",
-            "vars":[
-                {"name":"","value":0.0,"unit":"-"},
-            ],
-            "formulas":[""],
-            "checks":[],
+            "title": "Custom Calculation",
+            "items": [],
         }
     elif btype in ("heading","text","note"):
         base["text"] = ""
@@ -508,6 +524,10 @@ def _default_block(btype):
         base["path"] = ""
         base["caption"] = ""
         base["width"] = "full"  # "full" | "half" | "third"
+    elif btype == "table":
+        base["caption"] = ""
+        base["headers"] = ["Column 1", "Column 2", "Column 3"]
+        base["rows"]    = [["", "", ""], ["", "", ""]]
     return base
 
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -759,36 +779,103 @@ def evaluate_custom_calc(var_rows, formula_rows):
 
 
 def custom_calc_to_blocks(data: dict) -> list:
-    """Convert a custom_calc data dict to a list of report blocks."""
+    """Convert a custom_calc data dict to a list of report blocks.
+
+    Supports both the new items-based format and the legacy vars/formulas/checks
+    format (auto-migrated transparently).
+    """
     blocks = []
     title  = data.get("title", "Custom Calculation")
     blocks.append(S(title))
 
-    var_rows      = [v for v in data.get("vars", [])     if v.get("name","").strip()]
-    formula_rows  = [f for f in data.get("formulas", []) if f.strip() and "=" in f]
+    # ── migrate legacy format ──────────────────────────────────────────────────
+    if "items" not in data:
+        items = []
+        for v in data.get("vars", []):
+            if v.get("name", "").strip():
+                items.append({"type": "var", "name": v["name"],
+                              "value": float(v.get("value", 0.0)),
+                              "unit": v.get("unit", "-")})
+        for f in data.get("formulas", []):
+            if f.strip() and "=" in f:
+                items.append({"type": "formula", "expr": f})
+        for c in data.get("checks", []):
+            items.append({"type": "check",
+                          "label":    c.get("label", "Check"),
+                          "demand":   c.get("demand", ""),
+                          "capacity": float(c.get("capacity", 1.0)),
+                          "unit":     c.get("unit", "-")})
+    else:
+        items = data.get("items", [])
 
-    display, ns, errors = evaluate_custom_calc(var_rows, formula_rows)
-
-    for err in errors:
-        blocks.append(NOTE(err))
-
-    for name, formula, result in display:
-        blocks.append(CALC_ROW(name, formula, result))
-
+    ns  = {}          # grows incrementally as we process each item
     chk = CheckContext()
-    for c in data.get("checks", []):
-        label   = c.get("label", "Check")
-        d_expr  = c.get("demand", "").strip()
-        cap_val = float(c.get("capacity", 1.0))
-        cap_unt = c.get("unit", "-")
-        if not d_expr:
-            continue
-        try:
-            demand   = eval(d_expr, _UNIT_NS, ns)
-            capacity = parse_qty(cap_val, cap_unt)
-            blocks.append(chk.check(label, demand, capacity))
-        except Exception as exc:
-            blocks.append(T(f"Check error in '{label}': {exc}"))
+
+    for item in items:
+        itype = item.get("type", "")
+
+        if itype == "text":
+            content = item.get("content", "").strip()
+            if content:
+                blocks.append(T(content))
+
+        elif itype == "var":
+            name = item.get("name", "").strip()
+            if not name:
+                continue
+            try:
+                qty = parse_qty(float(item.get("value", 0.0)), item.get("unit", "-"))
+                ns[name] = qty
+                unit_lbl = UNIT_LABELS.get(item["unit"], item["unit"])
+                val_str  = (f"{item['value']:g}" if item["unit"] == "-"
+                            else f"{item['value']:g} {unit_lbl}")
+                blocks.append(CALC_ROW(name, "", val_str))
+            except Exception as exc:
+                blocks.append(NOTE(f"Variable '{name}': {exc}"))
+
+        elif itype == "formula":
+            raw = item.get("expr", "").strip()
+            if not raw or "=" not in raw:
+                continue
+            lhs, rhs = raw.split("=", 1)
+            lhs = lhs.strip()
+            rhs = rhs.strip()
+            try:
+                result = eval(rhs, _UNIT_NS, ns)
+                ns[lhs] = result
+                result_str   = fmt_qty(result)
+                formula_disp = (rhs
+                    .replace("**", "^")
+                    .replace("*", " × ")
+                    .replace("/", " / ")
+                    .replace("  ", " "))
+                blocks.append(CALC_ROW(lhs, formula_disp, result_str))
+            except Exception as exc:
+                blocks.append(NOTE(f"Formula '{raw}': {exc}"))
+
+        elif itype == "figure":
+            path      = item.get("path", "").strip()
+            caption   = item.get("caption", "")
+            width_key = item.get("width", "full")
+            fig_w     = {"full": 170, "half": 82, "third": 54}.get(width_key, 170)
+            if path and Path(path).exists():
+                blocks.append(FIG(path, caption, width_mm=fig_w))
+            elif path:
+                blocks.append(NOTE(f"Figure not found: {path}"))
+
+        elif itype == "check":
+            label   = item.get("label", "Check")
+            d_expr  = item.get("demand", "").strip()
+            cap_val = float(item.get("capacity", 1.0))
+            cap_unt = item.get("unit", "-")
+            if not d_expr:
+                continue
+            try:
+                demand   = eval(d_expr, _UNIT_NS, ns)
+                capacity = parse_qty(cap_val, cap_unt)
+                blocks.append(chk.check(label, demand, capacity))
+            except Exception as exc:
+                blocks.append(T(f"Check error in '{label}': {exc}"))
 
     return blocks
 
@@ -822,6 +909,16 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
             return [NOTE(f"Figure not found: {path}")]
         _fig_w = {"full": 170, "half": 82, "third": 54}.get(block.get("width", "full"), 170)
         return [FIG(path, block.get("caption", ""), width_mm=_fig_w)]
+
+    elif t == "table":
+        hdrs = block.get("headers", [])
+        rows = [[str(c) if c is not None else "" for c in r]
+                for r in block.get("rows", [])]
+        out  = []
+        if block.get("caption"):
+            out.append(T(block["caption"]))
+        out.append(TBL(hdrs, rows))
+        return out
 
     elif t == "fem_beam":
         d = block["data"]
@@ -1170,7 +1267,7 @@ def edit_figure(block):
             if _preview_w:
                 st.image(cur_path, width=_preview_w)
             else:
-                st.image(cur_path, use_container_width=True)
+                st.image(cur_path, use_column_width=True)
         with btn_col:
             st.markdown("<div style='padding-top:8px'>", unsafe_allow_html=True)
             if st.button("✕ Remove", key=_uid(block, "frm")):
@@ -1714,110 +1811,256 @@ def edit_masonry_ritter(block):
 
 
 def edit_custom_calc(block):
+    """Flexible item-list editor for custom calculations.
+
+    Items can be freely mixed in any order:
+      text     - narrative paragraph / assumptions
+      var      - named variable with value + unit (instantly in namespace)
+      formula  - arithmetic expression with live inline result
+      figure   - embedded image from the figures/ folder
+      check    - pass/fail utilisation check against the running namespace
+    """
     d = block["data"]
-    d["title"] = st.text_input("Section title", d.get("title","Custom Calculation"),
-                               key=_uid(block,"title"))
 
-    # â"€â"€ Variables â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-    st.markdown("**Variables** *(name, value, unit)*")
-    new_vars = []
-    for vi, var in enumerate(d.get("vars",[])):
-        vc1, vc2, vc3, vc4 = st.columns([2, 2, 2, 1])
-        vname = vc1.text_input("Name",  var.get("name",""),     key=_uid(block,f"vn{vi}"),
-                               label_visibility="collapsed", placeholder="name  e.g. g_k")
-        vval  = vc2.number_input("Value", value=float(var.get("value",0.0)),
-                                 key=_uid(block,f"vv{vi}"), label_visibility="collapsed",
-                                 format="%.4g")
-        vunit = vc3.selectbox("Unit", UNIT_CHOICES,
-                              index=UNIT_CHOICES.index(var.get("unit","-")),
-                              key=_uid(block,f"vu{vi}"), label_visibility="collapsed",
-                              format_func=lambda u: UNIT_LABELS.get(u, u))
-        keep  = not vc4.button("✕", key=_uid(block,f"vdel{vi}"), help="Remove")
-        if keep:
-            new_vars.append({"name": vname, "value": vval, "unit": vunit})
-    d["vars"] = new_vars
+    # -- migrate legacy vars/formulas/checks -> items --------------------
+    if "items" not in d:
+        old_items = []
+        for v in d.get("vars", []):
+            if v.get("name", "").strip():
+                old_items.append({"type": "var", "name": v["name"],
+                                  "value": float(v.get("value", 0.0)),
+                                  "unit":  v.get("unit", "-")})
+        for f in d.get("formulas", []):
+            if f.strip() and "=" in f:
+                old_items.append({"type": "formula", "expr": f})
+        for c in d.get("checks", []):
+            old_items.append({"type": "check",
+                              "label":    c.get("label", "Check"),
+                              "demand":   c.get("demand", ""),
+                              "capacity": float(c.get("capacity", 1.0)),
+                              "unit":     c.get("unit", "-")})
+        d["items"] = old_items
+        d.pop("vars", None)
+        d.pop("formulas", None)
+        d.pop("checks", None)
 
-    if st.button("+ Add variable", key=_uid(block,"vadd")):
-        d["vars"].append({"name":"", "value":0.0, "unit":"-"})
-        st.rerun()
+    d["title"] = st.text_input("Section title", d.get("title", "Custom Calculation"),
+                               key=_uid(block, "title"))
 
-    st.markdown("---")
+    items = d["items"]
 
-    # â"€â"€ Formulas â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-    st.markdown("**Formulas** *(write any expression — units flow automatically)*")
-    st.caption("Examples:  `w_Ed = 1.35 * g_k + 1.5 * q_k`   ·   `F_Ed = w_Ed * L`   ·   `sigma = F_Ed / A`")
-    new_formulas = []
-    for fi, formula in enumerate(d.get("formulas",[])):
-        fc1, fc2 = st.columns([6, 1])
-        fval = fc1.text_input("Formula", formula, key=_uid(block,f"f{fi}"),
-                              label_visibility="collapsed",
-                              placeholder="e.g.   F_Ed = g_k * L")
-        keep = not fc2.button("✕", key=_uid(block,f"fdel{fi}"), help="Remove")
-        if keep:
-            new_formulas.append(fval)
-    d["formulas"] = new_formulas
+    # build running namespace for inline result previews
+    ns = {}
+    for it in items:
+        if it["type"] == "var" and it.get("name", "").strip():
+            try:
+                ns[it["name"].strip()] = parse_qty(float(it.get("value", 0.0)),
+                                                   it.get("unit", "-"))
+            except Exception:
+                pass
+        elif it["type"] == "formula":
+            raw = it.get("expr", "").strip()
+            if raw and "=" in raw:
+                lhs, rhs = raw.split("=", 1)
+                try:
+                    ns[lhs.strip()] = eval(rhs.strip(), _UNIT_NS, ns)
+                except Exception:
+                    pass
 
-    if st.button("+ Add formula", key=_uid(block,"fadd")):
-        d["formulas"].append("")
-        st.rerun()
+    # per-item badge colours
+    _BADGE = {
+        "text":    ("TXT", "#6E6E73"),
+        "var":     ("VAR", "#12788E"),
+        "formula": ("FML", "#032E38"),
+        "figure":  ("FIG", "#6D4E8A"),
+        "check":   ("CHK", "#E74825"),
+    }
 
-    st.markdown("---")
+    to_delete    = None
+    to_move_up   = None
+    to_move_down = None
 
-    # â"€â"€ Live preview â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-    active_vars     = [v for v in d["vars"]     if v.get("name","").strip()]
-    active_formulas = [f for f in d["formulas"] if f.strip() and "=" in f]
+    for idx, item in enumerate(items):
+        itype = item.get("type", "text")
+        badge_txt, badge_color = _BADGE.get(itype, ("???", "#999"))
 
-    if active_vars or active_formulas:
-        with st.expander("Preview calculation result", expanded=True):
-            rows, ns, errs = evaluate_custom_calc(active_vars, active_formulas)
-            for name, formula, result in rows:
-                if formula:
-                    st.markdown(
-                        f"<code style='font-size:13px'>"
-                        f"<b>{name}</b>  =  {formula}  =  "
-                        f"<span style='color:#12788E'><b>{result}</b></span></code>",
-                        unsafe_allow_html=True,
-                    )
+        # control strip: up / down / badge / [content] / delete
+        _up_c, _dn_c, _bg_c, _ct_c, _dl_c = st.columns([1, 1, 1, 16, 1])
+
+        _bg_c.markdown(
+            f"<div style='background:{badge_color}; color:white; font-size:9px; "
+            f"font-weight:700; letter-spacing:0.05em; padding:3px 5px; "
+            f"border-radius:3px; margin-top:8px; text-align:center;'>"
+            f"{badge_txt}</div>",
+            unsafe_allow_html=True,
+        )
+        if idx > 0 and _up_c.button("↑", key=_uid(block, f"up{idx}"), help="Move up"):
+            to_move_up = idx
+        if idx < len(items) - 1 and _dn_c.button("↓", key=_uid(block, f"dn{idx}"),
+                                                   help="Move down"):
+            to_move_down = idx
+        if _dl_c.button("✕", key=_uid(block, f"xdel{idx}"), help="Remove"):
+            to_delete = idx
+
+        with _ct_c:
+            if itype == "text":
+                item["content"] = st.text_area(
+                    "Text", item.get("content", ""), height=80,
+                    key=_uid(block, f"txt{idx}"),
+                    label_visibility="collapsed",
+                    placeholder="Assumptions, description, references...",
+                )
+
+            elif itype == "var":
+                _vc1, _vc2, _vc3 = st.columns([3, 2, 2])
+                item["name"]  = _vc1.text_input(
+                    "Name", item.get("name", ""), key=_uid(block, f"vn{idx}"),
+                    label_visibility="collapsed", placeholder="e.g. g_k")
+                item["value"] = _vc2.number_input(
+                    "Value", value=float(item.get("value", 0.0)),
+                    key=_uid(block, f"vv{idx}"), label_visibility="collapsed",
+                    format="%.4g")
+                _cur_unit = item.get("unit", "-")
+                if _cur_unit not in UNIT_CHOICES:
+                    _cur_unit = "-"
+                item["unit"] = _vc3.selectbox(
+                    "Unit", UNIT_CHOICES,
+                    index=UNIT_CHOICES.index(_cur_unit),
+                    key=_uid(block, f"vu{idx}"),
+                    label_visibility="collapsed",
+                    format_func=lambda u: UNIT_LABELS.get(u, u))
+
+            elif itype == "formula":
+                item["expr"] = st.text_input(
+                    "Formula", item.get("expr", ""),
+                    key=_uid(block, f"fml{idx}"),
+                    label_visibility="collapsed",
+                    placeholder="e.g.  F_Ed = g_k * L   or   sigma = F_Ed / A")
+                # inline result
+                _expr = item.get("expr", "").strip()
+                if _expr and "=" in _expr:
+                    _lhs = _expr.split("=")[0].strip()
+                    if _lhs in ns:
+                        _res = fmt_qty(ns[_lhs])
+                        st.markdown(
+                            f"<span style='font-size:12px; color:#12788E; "
+                            f"font-family:monospace;'>→ {_lhs} = {_res}</span>",
+                            unsafe_allow_html=True,
+                        )
+
+            elif itype == "figure":
+                import glob as _glob
+                _fig_dir  = BASE_DIR / "figures"
+                _all_imgs = sorted(_glob.glob(str(_fig_dir / "*")))
+                _img_names = [Path(p).name for p in _all_imgs]
+                _fc1, _fc2 = st.columns([3, 2])
+                if _img_names:
+                    _cur_name = Path(item.get("path", "")).name
+                    _sel_idx  = (_img_names.index(_cur_name)
+                                 if _cur_name in _img_names else 0)
+                    _chosen = _fc1.selectbox(
+                        "Figure", _img_names, index=_sel_idx,
+                        key=_uid(block, f"figsel{idx}"),
+                        label_visibility="collapsed")
+                    item["path"] = str(_fig_dir / _chosen)
                 else:
-                    st.markdown(
-                        f"<code style='font-size:13px'>"
-                        f"<b>{name}</b>  =  "
-                        f"<span style='color:#12788E'>{result}</span></code>",
-                        unsafe_allow_html=True,
-                    )
-            for e in errs:
-                st.error(e)
+                    _fc1.caption("No images found in figures/ folder")
+                item["caption"] = _fc2.text_input(
+                    "Caption", item.get("caption", ""),
+                    key=_uid(block, f"figcap{idx}"),
+                    label_visibility="collapsed",
+                    placeholder="Caption text")
+                item["width"] = st.select_slider(
+                    "Width", options=["third", "half", "full"],
+                    value=item.get("width", "full"),
+                    key=_uid(block, f"figw{idx}"))
+                _fp = item.get("path", "")
+                if _fp and Path(_fp).exists():
+                    st.image(Path(_fp).read_bytes(), width=180)
 
-    st.markdown("---")
+            elif itype == "check":
+                _cc1, _cc2, _cc3, _cc4 = st.columns([3, 3, 2, 2])
+                item["label"]    = _cc1.text_input(
+                    "Label", item.get("label", "Check"),
+                    key=_uid(block, f"cl{idx}"),
+                    label_visibility="collapsed", placeholder="Check label")
+                item["demand"]   = _cc2.text_input(
+                    "Demand", item.get("demand", ""),
+                    key=_uid(block, f"cd{idx}"),
+                    label_visibility="collapsed",
+                    placeholder="demand expr e.g. sigma")
+                item["capacity"] = _cc3.number_input(
+                    "Capacity", float(item.get("capacity", 1.0)),
+                    key=_uid(block, f"cc{idx}"),
+                    label_visibility="collapsed")
+                _chk_unit = item.get("unit", "-")
+                if _chk_unit not in UNIT_CHOICES:
+                    _chk_unit = "-"
+                item["unit"] = _cc4.selectbox(
+                    "Unit", UNIT_CHOICES,
+                    index=UNIT_CHOICES.index(_chk_unit),
+                    key=_uid(block, f"cu{idx}"),
+                    label_visibility="collapsed",
+                    format_func=lambda u: UNIT_LABELS.get(u, u))
+                # inline check result
+                _dexpr = item.get("demand", "").strip()
+                if _dexpr:
+                    try:
+                        _dem = eval(_dexpr, _UNIT_NS, ns)
+                        _cap = parse_qty(float(item["capacity"]), item["unit"])
+                        _rat = float(_dem / _cap)
+                        _col = "#27AE60" if _rat <= 1.0 else "#E74825"
+                        _lbl = "✓ OK" if _rat <= 1.0 else "✗ FAIL"
+                        st.markdown(
+                            f"<span style='font-size:12px; color:{_col}; "
+                            f"font-family:monospace;'>"
+                            f"→ {_rat:.3f}  {_lbl}</span>",
+                            unsafe_allow_html=True,
+                        )
+                    except Exception:
+                        pass
 
-    # â"€â"€ Pass/Fail checks â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-    st.markdown("**Pass / Fail checks**")
-    st.caption("demand: type a variable name or expression  ·  capacity: value + unit")
-    new_checks = []
-    for ci, chk in enumerate(d.get("checks",[])):
-        cc1, cc2, cc3, cc4, cc5 = st.columns([3, 2, 2, 2, 1])
-        clabel  = cc1.text_input("Label",    chk.get("label","Check"),
-                                 key=_uid(block,f"cl{ci}"), label_visibility="collapsed",
-                                 placeholder="Check label")
-        cdemand = cc2.text_input("Demand",   chk.get("demand",""),
-                                 key=_uid(block,f"cd{ci}"), label_visibility="collapsed",
-                                 placeholder="demand variable / expr")
-        ccap    = cc3.number_input("Capacity", float(chk.get("capacity",1.0)),
-                                   key=_uid(block,f"cc{ci}"), label_visibility="collapsed")
-        cunit   = cc4.selectbox("Unit", UNIT_CHOICES,
-                                index=UNIT_CHOICES.index(chk.get("unit","-")),
-                                key=_uid(block,f"cu{ci}"), label_visibility="collapsed",
-                                format_func=lambda u: UNIT_LABELS.get(u, u))
-        keep    = not cc5.button("✕", key=_uid(block,f"cdel{ci}"), help="Remove")
-        if keep:
-            new_checks.append({"label":clabel,"demand":cdemand,
-                               "capacity":ccap,"unit":cunit})
-    d["checks"] = new_checks
+        st.markdown(
+            "<div style='border-bottom:1px solid #f0f0f0; margin:2px 0 6px;'></div>",
+            unsafe_allow_html=True,
+        )
 
-    if st.button("+ Add check", key=_uid(block,"cadd")):
-        d["checks"].append({"label":"Check","demand":"","capacity":1.0,"unit":"kN"})
+    # apply mutation from this run
+    if to_delete is not None:
+        d["items"].pop(to_delete)
+        st.rerun()
+    elif to_move_up is not None and to_move_up > 0:
+        lst = d["items"]
+        lst[to_move_up - 1], lst[to_move_up] = lst[to_move_up], lst[to_move_up - 1]
+        st.rerun()
+    elif to_move_down is not None and to_move_down < len(d["items"]) - 1:
+        lst = d["items"]
+        lst[to_move_down], lst[to_move_down + 1] = lst[to_move_down + 1], lst[to_move_down]
         st.rerun()
 
+    # add item buttons
+    st.markdown(
+        "<p style='font-size:11px; color:#999; margin:10px 0 4px; "
+        "letter-spacing:0.06em; text-transform:uppercase;'>Add item</p>",
+        unsafe_allow_html=True,
+    )
+    _a1, _a2, _a3, _a4, _a5 = st.columns(5)
+    if _a1.button("+ Text",     key=_uid(block, "add_txt"), use_container_width=True):
+        d["items"].append({"type": "text", "content": ""})
+        st.rerun()
+    if _a2.button("+ Variable", key=_uid(block, "add_var"), use_container_width=True):
+        d["items"].append({"type": "var", "name": "", "value": 0.0, "unit": "-"})
+        st.rerun()
+    if _a3.button("+ Formula",  key=_uid(block, "add_fml"), use_container_width=True):
+        d["items"].append({"type": "formula", "expr": ""})
+        st.rerun()
+    if _a4.button("+ Figure",   key=_uid(block, "add_fig"), use_container_width=True):
+        d["items"].append({"type": "figure", "path": "", "caption": "", "width": "full"})
+        st.rerun()
+    if _a5.button("+ Check",    key=_uid(block, "add_chk"), use_container_width=True):
+        d["items"].append({"type": "check", "label": "Check",
+                           "demand": "", "capacity": 1.0, "unit": "kN"})
+        st.rerun()
 
 def edit_fem_beam(block):
     d = block["data"]
@@ -2057,6 +2300,7 @@ ICONS = {
     "text":               "",
     "note":               "",
     "figure":             "",
+    "table":              "",
     "pagebreak":          "",
     "timber_beam_column": "",
     "timber_beam":        "",
@@ -2073,6 +2317,7 @@ LABELS = {
     "text":               "Paragraph",
     "note":               "Note",
     "figure":             "Figure",
+    "table":              "Table",
     "pagebreak":          "Page break",
     "fem_beam":           "FEM beam analysis",
     "timber_beam_column": "Timber beam-column — EN 1995",
@@ -2089,6 +2334,12 @@ def _block_summary(block) -> str:
     t = block["type"]
     if t in ("heading","text","note"):
         return block.get("text","")[:60]
+    if t == "table":
+        cap = block.get("caption","")
+        hdrs = block.get("headers",[])
+        return cap or (", ".join(hdrs[:3]) + ("…" if len(hdrs) > 3 else ""))
+    if t == "figure":
+        return block.get("caption","") or (block.get("path","").split("/")[-1].split("\\")[-1])[:40]
     if t == "custom_calc":
         return block.get("data",{}).get("title","")
     if t in ("timber_beam_column","timber_beam","steel_beam","concrete_beam","concrete_column","masonry_wall","masonry_ritter"):
@@ -2103,31 +2354,48 @@ def _block_summary(block) -> str:
 with st.sidebar:
     logo_path = BASE_DIR / "Billede2.png"
     if logo_path.exists():
-        st.image(str(logo_path), width=140)
+        st.image(logo_path.read_bytes(), width=140)
 
-    # ── Save / Load ───────────────────────────────────────────────────────────
-    st.markdown("## Save / Load")
+    # ── Who are you? ──────────────────────────────────────────────────────────
+    _cu = st.text_input(
+        "Your name / initials",
+        value       = st.session_state.current_user,
+        placeholder = "e.g. NCJ",
+        key         = "_sb_user_input",
+        help        = "Shown as 'last edited by' on project cards.",
+    )
+    st.session_state.current_user = _cu
 
-    # Save — always available
+    st.markdown("---")
+
+    # ── Export / Import ───────────────────────────────────────────────────────
+    # Projects auto-save to the local database — use these only for backups or
+    # moving data between machines.
+    st.markdown(
+        "<p style='font-size:10px; letter-spacing:0.1em; text-transform:uppercase; "
+        "color:#AEAEB2; margin-bottom:4px;'>Backup / Transfer</p>",
+        unsafe_allow_html=True,
+    )
     _proj_name = st.session_state.get("proj_ref", "report")
     _save_name = f"{_proj_name}.json".replace("/", "-").replace(" ", "_")
     st.download_button(
-        label            = "Save project",
+        label            = "Export JSON",
         data             = _project_to_json(),
         file_name        = _save_name,
         mime             = "application/json",
         use_container_width = True,
-        help             = "Download the full report (blocks + metadata) as a JSON file. "
-                           "Load it back later to continue editing.",
+        help             = "Download all projects as a JSON backup. "
+                           "Use 'Import JSON' on another machine to restore.",
     )
 
-    # Load
+    # Import
     _uploaded = st.file_uploader(
-        "📂  Load project  (.json)",
+        "Import JSON",
         type             = ["json"],
         key              = "_load_uploader",
         label_visibility = "collapsed",
-        help             = "Upload a previously saved .json report file.",
+        help             = "Import projects from a JSON backup file. "
+                           "Existing projects with the same ID are overwritten.",
     )
     if _uploaded is not None:
         try:
@@ -2219,6 +2487,10 @@ _active_doc = st.session_state.active_doc
 
 if _active_pid is None:
     # ── FRONT PAGE — project folders ─────────────────────────────────────────
+    # Always pull a fresh list from the database so all engineers see each
+    # other's projects without needing to reload the page manually.
+    st.session_state.projects = _db.load_all_projects()
+
     st.markdown(
         "<h1 style='font-size:28px; font-weight:800; letter-spacing:0.01em; margin-bottom:4px;'>"
         "Projects</h1>"
@@ -2234,6 +2506,7 @@ if _active_pid is None:
             _np_ref  = _np_c2.text_input("Sagsnr / Ref", placeholder="202328")
             if st.form_submit_button("Create project", use_container_width=True):
                 _p = _new_project(name=_np_name or "New Project", ref=_np_ref)
+                _db.save_project(_p, user=st.session_state.get("current_user", ""))
                 st.session_state.projects.append(_p)
                 _open_project(_p["id"])
 
@@ -2258,13 +2531,19 @@ if _active_pid is None:
                         1 for d in DOC_DEFS
                         if len(_proj["documents"].get(d, {}).get("blocks", [])) > 0
                     )
+                    # Last-edited stamp (written by db.save_project)
+                    _uat = _proj.get("_updated_at", "")
+                    _uby = _proj.get("_updated_by", "")
+                    _stamp = _db.fmt_updated(_uat) if _uat else _pd
+                    _by_str = f" · {_uby}" if _uby else ""
                     st.markdown(
                         f"<div style='border:1px solid #e8e8e8; border-top:3px solid #E74825; "
                         f"padding:16px 14px 12px; margin-bottom:6px;'>"
                         f"<div style='font-size:18px; font-weight:800; color:#1C1C1E; "
                         f"line-height:1.2; margin-bottom:4px;'>{_pn}</div>"
                         f"<div style='font-size:11px; color:#6E6E73; margin-bottom:2px;'>{_pr}</div>"
-                        f"<div style='font-size:10px; color:#AEAEB2; margin-bottom:8px;'>{_pd}</div>"
+                        f"<div style='font-size:10px; color:#AEAEB2; margin-bottom:4px;'>"
+                        f"{_stamp}{_by_str}</div>"
                         f"<div style='font-size:10px; color:#AEAEB2;'>"
                         f"{'&#9679;' if _nd > 0 else '&#9675;'}&nbsp;{_nd} / 7 documents"
                         f"</div></div>",
@@ -2276,6 +2555,7 @@ if _active_pid is None:
                         _open_project(_proj["id"])
                     if _oc2.button("✕", key=f"proj_del_{_proj['id']}",
                                    use_container_width=True, help="Delete project"):
+                        _db.delete_project(_proj["id"])
                         st.session_state.projects = [
                             p for p in st.session_state.projects if p["id"] != _proj["id"]
                         ]
@@ -2394,7 +2674,7 @@ else:
                 _page   = _doc[_pi]
                 _bitmap = _page.render(scale=2.0)
                 _img    = _bitmap.to_pil()
-                st.image(_img, use_container_width=True)
+                st.image(_img, use_column_width=True)
                 if _pi < _n_pages - 1:
                     st.markdown(
                         "<div style='border-top:2px solid #e8e8e8; margin:6px 0;'></div>",
@@ -2438,58 +2718,147 @@ else:
 
     to_delete = set()
 
-    _INLINE_TYPES = {"heading", "text", "note", "figure", "pagebreak"}
+    _INLINE_TYPES = {"heading", "text", "note", "figure", "table", "pagebreak"}
 
     for i, block in enumerate(st.session_state.blocks):
         t = block["type"]
 
         if t in _INLINE_TYPES:
-            # ── Inline block — always visible, no click required ──────────────
-            _bc, _dc = st.columns([16, 1])
+            # Per-block edit toggle — empty blocks start in edit mode
+            _ek = f"_blk_edit_{block['id']}"
+            if _ek not in st.session_state:
+                _auto_edit = (
+                    t in ("figure", "table")
+                    or not block.get("text", "").strip()
+                )
+                st.session_state[_ek] = _auto_edit
+            _editing = st.session_state[_ek]
+
+            # Columns: content | edit-toggle | delete
+            _bc, _tc, _dc = st.columns([15, 1, 1])
+
             with _bc:
+                # ── HEADING ──────────────────────────────────────────────────
                 if t == "heading":
-                    st.markdown(
-                        "<span style='font-size:10px; color:#AEAEB2; text-transform:uppercase; "
-                        "letter-spacing:0.12em; font-weight:600;'>Heading</span>",
-                        unsafe_allow_html=True,
-                    )
-                    block["text"] = st.text_input(
-                        "", block.get("text", ""),
-                        key=f"il_h_{block['id']}",
-                        placeholder="Section heading…",
-                        label_visibility="collapsed",
-                    )
+                    if _editing:
+                        block["text"] = st.text_input(
+                            "", block.get("text", ""),
+                            key=f"il_h_{block['id']}",
+                            placeholder="Section heading…",
+                            label_visibility="collapsed",
+                        )
+                    else:
+                        _txt = block.get("text", "")
+                        _h_body = _txt if _txt else "<em style='color:#ccc'>Empty heading</em>"
+                        st.markdown(
+                            f"<p style='font-size:16px; font-weight:700; color:#1C1C1E; "
+                            f"margin:6px 0 2px; padding-bottom:4px; "
+                            f"border-bottom:1.5px solid #e8e8e8;'>{_h_body}</p>",
+                            unsafe_allow_html=True,
+                        )
 
+                # ── TEXT ─────────────────────────────────────────────────────
                 elif t == "text":
-                    _tv = block.get("text", "")
-                    block["text"] = st.text_area(
-                        "", _tv,
-                        key=f"il_t_{block['id']}",
-                        placeholder="Paragraph text…",
-                        label_visibility="collapsed",
-                        height=max(80, min(400, _tv.count("\n") * 22 + 80)),
-                    )
+                    if _editing:
+                        _tv = block.get("text", "")
+                        block["text"] = st.text_area(
+                            "", _tv,
+                            key=f"il_t_{block['id']}",
+                            placeholder="Paragraph text…",
+                            label_visibility="collapsed",
+                            height=max(80, min(400, _tv.count("\n") * 22 + 80)),
+                        )
+                    else:
+                        _txt = block.get("text", "").strip()
+                        if _txt:
+                            _html = _txt.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                            _html = _html.replace("\n\n", "</p><p style='margin:6px 0;'>").replace("\n", "<br>")
+                            st.markdown(
+                                f"<div style='font-size:13px; color:#1C1C1E; line-height:1.7; "
+                                f"padding:4px 0;'><p style='margin:0;'>{_html}</p></div>",
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            st.caption("_Empty paragraph — click ✏ to edit_")
 
+                # ── NOTE ─────────────────────────────────────────────────────
                 elif t == "note":
-                    st.markdown(
-                        "<div style='background:#FFF8F6; border-left:3px solid #E74825; "
-                        "padding:4px 10px 2px; margin-bottom:2px;'>"
-                        "<span style='font-size:10px; color:#E74825; font-weight:700; "
-                        "letter-spacing:0.08em;'>NOTE / PLACEHOLDER</span></div>",
-                        unsafe_allow_html=True,
-                    )
-                    _nv = block.get("text", "")
-                    block["text"] = st.text_area(
-                        "", _nv,
-                        key=f"il_n_{block['id']}",
-                        placeholder="Note text…",
-                        label_visibility="collapsed",
-                        height=max(80, min(300, _nv.count("\n") * 20 + 80)),
-                    )
+                    if _editing:
+                        _nv = block.get("text", "")
+                        block["text"] = st.text_area(
+                            "", _nv,
+                            key=f"il_n_{block['id']}",
+                            placeholder="Note / placeholder text…",
+                            label_visibility="collapsed",
+                            height=max(80, min(300, _nv.count("\n") * 20 + 80)),
+                        )
+                    else:
+                        _txt = block.get("text", "").strip()
+                        _note_empty = "<em style='color:#c0886a;'>Empty note — click to edit</em>"
+                        _html = (_txt.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                                     .replace("\n", "<br>")
+                                 if _txt else _note_empty)
+                        st.markdown(
+                            f"<div style='border-left:3px solid #E74825; background:#FFF8F6; "
+                            f"padding:8px 12px; font-size:12px; color:#5A2800; "
+                            f"line-height:1.65; font-style:italic;'>{_html}</div>",
+                            unsafe_allow_html=True,
+                        )
 
+                # ── FIGURE ───────────────────────────────────────────────────
                 elif t == "figure":
                     EDITORS["figure"](block)
 
+                # ── TABLE ────────────────────────────────────────────────────
+                elif t == "table":
+                    _tc_val = block.get("caption", "")
+                    if _editing:
+                        block["caption"] = st.text_input(
+                            "Caption", _tc_val,
+                            key=f"il_tc_{block['id']}",
+                            placeholder="Table 1.1 — …",
+                            label_visibility="collapsed",
+                        )
+                        _hdrs = block.get("headers", ["Column 1", "Column 2"])
+                        _hdrs_str = st.text_input(
+                            "Columns (pipe-separated)",
+                            " | ".join(_hdrs),
+                            key=f"il_th_{block['id']}",
+                            help="Separate column names with  |  e.g.  Name | Value | Unit",
+                        )
+                        _new_hdrs = [h.strip() for h in _hdrs_str.split("|") if h.strip()] or _hdrs
+                        _n = len(_new_hdrs)
+                        _rows = [(list(r) + [""] * _n)[:_n] for r in block.get("rows", [])]
+                        _df = (
+                            pd.DataFrame(_rows, columns=_new_hdrs)
+                            if _rows else pd.DataFrame(columns=_new_hdrs)
+                        )
+                        _edited = st.data_editor(
+                            _df, num_rows="dynamic", use_container_width=True,
+                            key=f"il_td_{block['id']}",
+                        )
+                        block["headers"] = list(_edited.columns)
+                        block["rows"] = [
+                            [str(c) if c is not None else "" for c in r]
+                            for r in _edited.values.tolist()
+                        ]
+                    else:
+                        if _tc_val:
+                            st.markdown(
+                                f"<p style='font-size:11px; color:#6E6E73; font-style:italic; "
+                                f"margin:4px 0 4px;'>{_tc_val}</p>",
+                                unsafe_allow_html=True,
+                            )
+                        _hdrs = block.get("headers", [])
+                        _rows = block.get("rows", [])
+                        if _hdrs:
+                            _df_v = (pd.DataFrame(_rows, columns=_hdrs)
+                                     if _rows else pd.DataFrame(columns=_hdrs))
+                            st.dataframe(_df_v, use_container_width=True, hide_index=True)
+                        else:
+                            st.caption("_Empty table — click ✏ to edit_")
+
+                # ── PAGE BREAK ───────────────────────────────────────────────
                 elif t == "pagebreak":
                     st.markdown(
                         "<p style='color:#AEAEB2; font-size:11px; text-align:center; "
@@ -2499,8 +2868,23 @@ else:
                         unsafe_allow_html=True,
                     )
 
+            # Edit toggle button
+            with _tc:
+                st.markdown("<div style='padding-top:20px;'>", unsafe_allow_html=True)
+                if t not in ("pagebreak", "figure"):
+                    if _editing:
+                        if st.button("✓", key=f"done_{block['id']}", help="Done editing"):
+                            st.session_state[_ek] = False
+                            st.rerun()
+                    else:
+                        if st.button("✏", key=f"edit_{block['id']}", help="Edit"):
+                            st.session_state[_ek] = True
+                            st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            # Delete button
             with _dc:
-                st.markdown("<div style='padding-top:24px;'>", unsafe_allow_html=True)
+                st.markdown("<div style='padding-top:20px;'>", unsafe_allow_html=True)
                 if st.button("✕", key=f"del_{block['id']}", help="Delete"):
                     to_delete.add(block["id"])
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -2526,6 +2910,10 @@ else:
         st.session_state.blocks = [b for b in st.session_state.blocks
                                     if b["id"] not in to_delete]
         st.rerun()
+
+    # Auto-save: runs on every Streamlit rerun while the editor is open,
+    # so all inline edits are persisted to the database continuously.
+    _save_active_project()
 
     # ── Add block ─────────────────────────────────────────────────────────────
     st.markdown("---")
@@ -2560,3 +2948,83 @@ else:
             if btype is not None:
                 st.session_state.blocks.append(_default_block(btype))
                 st.rerun()
+
+    # ── Office calculation library ────────────────────────────────────────────
+    _lib_templates = _db.load_all_templates()
+
+    with st.expander(
+        f"📚  From office library  ({len(_lib_templates)} saved)",
+        expanded=False,
+    ):
+        if not _lib_templates:
+            st.markdown(
+                "<p style='color:#bbb; font-size:13px; padding:8px 0;'>"
+                "No templates saved yet — build a calculation below and save it "
+                "to share it with the whole office.</p>",
+                unsafe_allow_html=True,
+            )
+        else:
+            for _tpl in _lib_templates:
+                _tpl_c1, _tpl_c2, _tpl_c3 = st.columns([5, 1, 1])
+                _by  = _tpl.get("created_by", "")
+                _at  = _db.fmt_updated(_tpl.get("created_at", ""))
+                _nb  = len(_tpl.get("blocks", []))
+                _tpl_c1.markdown(
+                    f"**{_tpl['name']}**  \n"
+                    f"<span style='font-size:11px; color:#6E6E73;'>"
+                    f"{_nb} block{'s' if _nb != 1 else ''}"
+                    + (f" &nbsp;·&nbsp; {_tpl['description']}" if _tpl.get("description") else "")
+                    + (f" &nbsp;·&nbsp; {_by}" if _by else "")
+                    + f" &nbsp;·&nbsp; {_at}</span>",
+                    unsafe_allow_html=True,
+                )
+                if _tpl_c2.button("Insert", key=f"lib_ins_{_tpl['id']}",
+                                  use_container_width=True):
+                    import copy, uuid as _uuid
+                    for _lb in _tpl["blocks"]:
+                        _new = copy.deepcopy(_lb)
+                        _new["id"] = _uuid.uuid4().hex[:8]
+                        st.session_state.blocks.append(_new)
+                    st.rerun()
+                if _tpl_c3.button("Delete", key=f"lib_del_{_tpl['id']}",
+                                  use_container_width=True, help="Remove from library"):
+                    _db.delete_template(_tpl["id"])
+                    st.rerun()
+
+    # ── Save current document to office library ───────────────────────────────
+    st.markdown("---")
+    with st.expander("💾  Save current blocks to office library", expanded=False):
+        if not st.session_state.blocks:
+            st.caption("Add some blocks first, then save them here.")
+        else:
+            st.markdown(
+                f"<p style='font-size:12px; color:#6E6E73; margin-bottom:8px;'>"
+                f"This will save all <b>{len(st.session_state.blocks)} blocks</b> in the "
+                f"current document as a reusable template anyone in the office can insert.</p>",
+                unsafe_allow_html=True,
+            )
+            _lib_c1, _lib_c2 = st.columns([3, 2])
+            _lib_name = _lib_c1.text_input(
+                "Template name",
+                placeholder="e.g. CLT deck — simpel bjælkemodel",
+                key="lib_save_name",
+                label_visibility="collapsed",
+            )
+            _lib_desc = _lib_c2.text_input(
+                "Short description (optional)",
+                placeholder="e.g. GL24h, simpel understøtning",
+                key="lib_save_desc",
+                label_visibility="collapsed",
+            )
+            if st.button("💾  Save to office library", use_container_width=True,
+                         key="lib_save_btn", type="primary"):
+                if not _lib_name.strip():
+                    st.warning("Please enter a name for the template.")
+                else:
+                    _db.save_template(
+                        name        = _lib_name.strip(),
+                        description = _lib_desc.strip(),
+                        blocks      = st.session_state.blocks,
+                        user        = st.session_state.get("current_user", ""),
+                    )
+                    st.success(f"✓ Saved **{_lib_name}** to the office library.")

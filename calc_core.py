@@ -655,11 +655,13 @@ def build_story(all_blocks, styles):
                 color=C["rule_mid"], spaceAfter=1.5))
 
         elif t == "text":
-            story.append(Paragraph(b["content"], styles["normal"]))
+            _txt = b["content"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br/>")
+            story.append(Paragraph(_txt, styles["normal"]))
 
         elif t == "note":
             # Left-rule only — no filled box
-            tbl = Table([[Paragraph(b["content"], styles["note"])]],
+            _ntxt = b["content"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br/>")
+            tbl = Table([[Paragraph(_ntxt, styles["note"])]],
                         colWidths=[170*mm])
             tbl.setStyle(TableStyle([
                 ("LINEBEFORE",   (0,0),(0,-1), 2.5, C["orange"]),
