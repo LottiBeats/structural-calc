@@ -129,7 +129,7 @@ DOC_GROUPS = [
 ]
 
 def _empty_documents():
-    return {doc_id: {"title": title, "blocks": []}
+    return {doc_id: {"title": title, "blocks": [], "subdocs": []}
             for doc_id, title in DOC_DEFS.items()}
 
 
@@ -223,6 +223,8 @@ if "active_project_id" not in st.session_state:
     st.session_state.active_project_id = None
 if "current_user" not in st.session_state:
     st.session_state.current_user = ""
+if "active_subdoc" not in st.session_state:
+    st.session_state.active_subdoc = None
 
 # ── project-save / load helpers ───────────────────────────────────────────────
 
@@ -259,6 +261,7 @@ def _apply_loaded_project(data: dict):
             for did in DOC_DEFS:
                 if did in raw:
                     docs[did]["blocks"] = _reassign_ids(raw[did].get("blocks", []))
+                    docs[did]["subdocs"] = raw[did].get("subdocs", [])
         return docs
 
     v = data.get("version", 1)
@@ -267,8 +270,11 @@ def _apply_loaded_project(data: dict):
         for proj in projects:
             raw_docs = proj.get("documents", {})
             proj["documents"] = {
-                did: {"title": _empty_documents()[did]["title"],
-                      "blocks": _reassign_ids(raw_docs.get(did, {}).get("blocks", []))}
+                did: {
+                    "title":   _empty_documents()[did]["title"],
+                    "blocks":  _reassign_ids(raw_docs.get(did, {}).get("blocks", [])),
+                    "subdocs": raw_docs.get(did, {}).get("subdocs", []),
+                }
                 for did in DOC_DEFS
             }
         st.session_state.projects = projects
@@ -316,9 +322,16 @@ def _open_document(doc_id):
 def _close_document():
     """Return to the dashboard, saving current blocks into the active document."""
     active = st.session_state.get("active_doc")
+    active_subdoc = st.session_state.get("active_subdoc")
     if active:
-        st.session_state.documents[active]["blocks"] = list(st.session_state.blocks)
+        if active_subdoc is not None:
+            subdocs = st.session_state.documents[active].get("subdocs", [])
+            if active_subdoc < len(subdocs):
+                subdocs[active_subdoc]["blocks"] = list(st.session_state.blocks)
+        else:
+            st.session_state.documents[active]["blocks"] = list(st.session_state.blocks)
     st.session_state.active_doc = None
+    st.session_state.active_subdoc = None
     st.session_state.blocks = []
     st.session_state.pop("_pdf_preview", None)
     st.rerun()
@@ -359,11 +372,20 @@ def _save_active_project():
         return
     proj["metadata"] = {k: st.session_state.get(k, "") for k in _PROJ_KEYS}
     active = st.session_state.get("active_doc")
+    active_subdoc = st.session_state.get("active_subdoc")
     if active:
-        st.session_state.documents[active]["blocks"] = list(st.session_state.blocks)
+        if active_subdoc is not None:
+            subdocs = st.session_state.documents[active].get("subdocs", [])
+            if active_subdoc < len(subdocs):
+                subdocs[active_subdoc]["blocks"] = list(st.session_state.blocks)
+        else:
+            st.session_state.documents[active]["blocks"] = list(st.session_state.blocks)
     proj["documents"] = {
-        did: {"title": st.session_state.documents[did]["title"],
-              "blocks": list(st.session_state.documents[did]["blocks"])}
+        did: {
+            "title":   st.session_state.documents[did]["title"],
+            "blocks":  list(st.session_state.documents[did]["blocks"]),
+            "subdocs": list(st.session_state.documents[did].get("subdocs", [])),
+        }
         for did in DOC_DEFS
     }
     # Persist to database (fast — <1 ms for typical project sizes)
@@ -384,7 +406,7 @@ def _new_project(name="New Project", ref=""):
     return {
         "id":       pid,
         "metadata": meta,
-        "documents": {did: {"title": docs[did]["title"], "blocks": []}
+        "documents": {did: {"title": docs[did]["title"], "blocks": [], "subdocs": []}
                       for did in DOC_DEFS},
         "created":  str(date.today()),
     }
@@ -401,9 +423,11 @@ def _open_project(pid):
     for did in DOC_DEFS:
         if did in proj["documents"]:
             docs[did]["blocks"] = list(proj["documents"][did].get("blocks", []))
+            docs[did]["subdocs"] = list(proj["documents"][did].get("subdocs", []))
     st.session_state.documents = docs
     st.session_state.blocks = []
     st.session_state.active_doc = None
+    st.session_state.active_subdoc = None
     st.session_state.active_project_id = pid
     st.session_state.pop("_pdf_preview", None)
     st.rerun()
@@ -413,8 +437,63 @@ def _close_project():
     _save_active_project()
     st.session_state.active_project_id = None
     st.session_state.active_doc = None
+    st.session_state.active_subdoc = None
     st.session_state.blocks = []
     st.session_state.pop("_pdf_preview", None)
+    st.rerun()
+
+def _open_subdoc(subdoc_idx: int):
+    """Open a specific sub-document within the currently active document."""
+    active_doc = st.session_state.get("active_doc")
+    if not active_doc:
+        return
+    # Save blocks from current subdoc (if any) before switching
+    cur_subdoc = st.session_state.get("active_subdoc")
+    if cur_subdoc is not None:
+        subdocs = st.session_state.documents[active_doc].get("subdocs", [])
+        if cur_subdoc < len(subdocs):
+            subdocs[cur_subdoc]["blocks"] = list(st.session_state.blocks)
+    # Load the target subdoc
+    subdocs = st.session_state.documents[active_doc].get("subdocs", [])
+    if 0 <= subdoc_idx < len(subdocs):
+        st.session_state.blocks = list(subdocs[subdoc_idx].get("blocks", []))
+    st.session_state.active_subdoc = subdoc_idx
+    st.session_state.pop("_pdf_preview", None)
+    st.rerun()
+
+def _close_subdoc():
+    """Return from a sub-document to its parent document's subdoc dashboard."""
+    active_doc = st.session_state.get("active_doc")
+    active_subdoc = st.session_state.get("active_subdoc")
+    if active_doc and active_subdoc is not None:
+        subdocs = st.session_state.documents[active_doc].get("subdocs", [])
+        if active_subdoc < len(subdocs):
+            subdocs[active_subdoc]["blocks"] = list(st.session_state.blocks)
+    st.session_state.blocks = []
+    st.session_state.active_subdoc = None
+    st.session_state.pop("_pdf_preview", None)
+    st.rerun()
+
+def _add_subdoc(doc_id: str, name: str, adopt_blocks: bool = True):
+    """Append a new sub-document to *doc_id*. If adopt_blocks, moves the
+    document's current top-level blocks into the first subdoc instead."""
+    doc = st.session_state.documents[doc_id]
+    subdocs = doc.setdefault("subdocs", [])
+    existing_blocks = list(doc.get("blocks", []))
+    new_subdoc = {"name": name.strip() or f"Sub-document {len(subdocs) + 1}", "blocks": []}
+    if adopt_blocks and not subdocs and existing_blocks:
+        # First subdoc: inherit the document's current blocks
+        new_subdoc["blocks"] = existing_blocks
+        doc["blocks"] = []
+    subdocs.append(new_subdoc)
+    st.rerun()
+
+def _delete_subdoc(doc_id: str, subdoc_idx: int):
+    """Remove a sub-document (cannot undo!)."""
+    doc = st.session_state.documents[doc_id]
+    subdocs = doc.get("subdocs", [])
+    if 0 <= subdoc_idx < len(subdocs):
+        subdocs.pop(subdoc_idx)
     st.rerun()
 
 def _default_block(btype):
@@ -2583,9 +2662,16 @@ elif _active_doc is None:
         for col, doc_id in zip(cols, doc_ids):
             with col:
                 doc = st.session_state.documents[doc_id]
-                n_blocks = len(doc["blocks"])
+                n_subdocs = len(doc.get("subdocs", []))
+                n_blocks  = sum(len(sd.get("blocks", [])) for sd in doc.get("subdocs", [])) \
+                            if n_subdocs else len(doc["blocks"])
                 accent = "#E74825" if doc_id.startswith("A") else "#032E38"
-                dot    = "&#9679;" if n_blocks > 0 else "&#9675;"
+                dot    = "&#9679;" if (n_blocks > 0 or n_subdocs > 0) else "&#9675;"
+                if n_subdocs:
+                    _stat_line = (f"{n_subdocs} sub-doc{'s' if n_subdocs != 1 else ''}"
+                                  f" &nbsp;·&nbsp; {n_blocks} block{'s' if n_blocks != 1 else ''}")
+                else:
+                    _stat_line = f"{n_blocks} block{'s' if n_blocks != 1 else ''}"
                 st.markdown(
                     f"<div style='border:1px solid #e8e8e8; border-top:3px solid {accent}; "
                     f"padding:16px 14px 10px; margin-bottom:4px; min-height:90px;'>"
@@ -2594,7 +2680,7 @@ elif _active_doc is None:
                     f"<div style='font-size:11px; color:#6E6E73; line-height:1.4; "
                     f"margin-bottom:10px;'>{doc['title']}</div>"
                     f"<div style='font-size:10px; color:#AEAEB2;'>"
-                    f"{dot}&nbsp;{n_blocks} block{'s' if n_blocks != 1 else ''}"
+                    f"{dot}&nbsp;{_stat_line}"
                     f"</div></div>",
                     unsafe_allow_html=True,
                 )
@@ -2609,29 +2695,132 @@ elif _active_doc is None:
         st.markdown("<div style='margin-bottom:28px'></div>", unsafe_allow_html=True)
 
 else:
-    # ── DOCUMENT EDITOR ──────────────────────────────────────────────────────
-    active_doc = st.session_state.active_doc
-    doc_title  = DOC_DEFS.get(active_doc, "")
+    # ── DOCUMENT EDITOR  (or sub-document dashboard) ─────────────────────────
+    active_doc    = st.session_state.active_doc
+    active_subdoc = st.session_state.get("active_subdoc")
+    doc_title     = DOC_DEFS.get(active_doc, "")
+    doc           = st.session_state.documents[active_doc]
+    subdocs       = doc.get("subdocs", [])
 
-    col_back, col_h, col_btn = st.columns([1, 4, 1])
-    with col_back:
-        st.markdown("<div style='padding-top:12px'>", unsafe_allow_html=True)
-        if st.button("← Back", key="back_btn"):
-            _close_document()
-        st.markdown("</div>", unsafe_allow_html=True)
-    with col_h:
-        st.markdown(
-            f"<h1 style='font-size:20px; font-weight:700; letter-spacing:0.02em; margin-bottom:2px;'>"
-            f"{active_doc} — {doc_title}</h1>"
-            f"<p style='font-size:12px; color:#999; margin-top:0;'>"
-            f"{proj_project} &nbsp;&middot;&nbsp; {proj_ref} &nbsp;&middot;&nbsp; Rev {proj_rev}"
-            f"</p>",
-            unsafe_allow_html=True,
-        )
-    with col_btn:
-        st.markdown("<div style='padding-top:14px'>", unsafe_allow_html=True)
-        gen_btn = st.button("Generate PDF", type="primary", use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+    # ── SUBDOC DASHBOARD — shown when a document has sub-documents and none
+    #    is currently open. Uses st.stop() so the block editor below is skipped.
+    if subdocs and active_subdoc is None:
+        accent = "#E74825" if active_doc.startswith("A") else "#032E38"
+        col_back, col_h, _ = st.columns([1, 5, 1])
+        with col_back:
+            st.markdown("<div style='padding-top:12px'>", unsafe_allow_html=True)
+            if st.button("← Back", key="back_btn"):
+                _close_document()
+            st.markdown("</div>", unsafe_allow_html=True)
+        with col_h:
+            st.markdown(
+                f"<h1 style='font-size:20px; font-weight:700; letter-spacing:0.02em; margin-bottom:2px;'>"
+                f"{active_doc} — {doc_title}</h1>"
+                f"<p style='font-size:12px; color:#999; margin-top:0;'>"
+                f"{proj_project} &nbsp;&middot;&nbsp; {proj_ref} &nbsp;&middot;&nbsp; Rev {proj_rev}"
+                f"</p>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("<div style='margin-bottom:20px'></div>", unsafe_allow_html=True)
+
+        # Render subdoc cards — up to 4 per row
+        _SDCOLS = 4
+        for _sri in range(0, len(subdocs), _SDCOLS):
+            _row_sdocs = subdocs[_sri: _sri + _SDCOLS]
+            _sdcols = st.columns(len(_row_sdocs))
+            for _sci, (_sdcol, _si) in enumerate(zip(_sdcols, range(_sri, _sri + len(_row_sdocs)))):
+                _sd = subdocs[_si]
+                _sd_label = f"{active_doc}.{_si + 1}"
+                _sd_nblk  = len(_sd.get("blocks", []))
+                _sd_dot   = "&#9679;" if _sd_nblk > 0 else "&#9675;"
+                with _sdcol:
+                    st.markdown(
+                        f"<div style='border:1px solid #e8e8e8; border-top:3px solid {accent}; "
+                        f"padding:16px 14px 10px; margin-bottom:4px; min-height:90px;'>"
+                        f"<div style='font-size:22px; font-weight:800; color:#1C1C1E; "
+                        f"line-height:1; margin-bottom:6px;'>{_sd_label}</div>"
+                        f"<div style='font-size:12px; color:#333; font-weight:600; "
+                        f"line-height:1.4; margin-bottom:6px;'>{_sd['name']}</div>"
+                        f"<div style='font-size:10px; color:#AEAEB2;'>"
+                        f"{_sd_dot}&nbsp;{_sd_nblk} block{'s' if _sd_nblk != 1 else ''}"
+                        f"</div></div>",
+                        unsafe_allow_html=True,
+                    )
+                    _op_c, _del_c = st.columns([4, 1])
+                    with _op_c:
+                        if st.button("Open →", key=f"sd_open_{active_doc}_{_si}",
+                                     use_container_width=True):
+                            _open_subdoc(_si)
+                    with _del_c:
+                        if st.button("✕", key=f"sd_del_{active_doc}_{_si}",
+                                     use_container_width=True,
+                                     help=f"Delete {_sd_label} (cannot undo)"):
+                            _delete_subdoc(active_doc, _si)
+
+        # Add a new sub-document
+        st.markdown("<div style='margin-top:24px'></div>", unsafe_allow_html=True)
+        with st.expander("＋ Add sub-document", expanded=False):
+            _sd_name_in = st.text_input(
+                "Sub-document title",
+                placeholder=f"e.g. Loads, Elements, Foundations…",
+                key=f"sd_new_name_{active_doc}",
+                label_visibility="collapsed",
+            )
+            if st.button("Add sub-document", key=f"sd_add_{active_doc}", type="primary"):
+                if not _sd_name_in.strip():
+                    st.warning("Please enter a title for the new sub-document.")
+                else:
+                    _add_subdoc(active_doc, _sd_name_in.strip(), adopt_blocks=False)
+
+        st.stop()
+
+    # ── SUBDOC EDITOR HEADER — we are inside a specific sub-document
+    if active_subdoc is not None:
+        _sd_label  = f"{active_doc}.{active_subdoc + 1}"
+        _sd_name   = subdocs[active_subdoc]["name"] if active_subdoc < len(subdocs) else ""
+        _hdr_title = f"{_sd_label} — {_sd_name}"
+
+        col_back, col_h, col_btn = st.columns([1, 4, 1])
+        with col_back:
+            st.markdown("<div style='padding-top:12px'>", unsafe_allow_html=True)
+            if st.button(f"← {active_doc}", key="back_btn"):
+                _close_subdoc()
+            st.markdown("</div>", unsafe_allow_html=True)
+        with col_h:
+            st.markdown(
+                f"<h1 style='font-size:20px; font-weight:700; letter-spacing:0.02em; margin-bottom:2px;'>"
+                f"{_hdr_title}</h1>"
+                f"<p style='font-size:12px; color:#999; margin-top:0;'>"
+                f"{proj_project} &nbsp;&middot;&nbsp; {proj_ref} &nbsp;&middot;&nbsp; Rev {proj_rev}"
+                f"</p>",
+                unsafe_allow_html=True,
+            )
+        with col_btn:
+            st.markdown("<div style='padding-top:14px'>", unsafe_allow_html=True)
+            gen_btn = st.button("Generate PDF", type="primary", use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    else:
+        # ── REGULAR DOCUMENT EDITOR HEADER (no sub-documents) ────────────────
+        col_back, col_h, col_btn = st.columns([1, 4, 1])
+        with col_back:
+            st.markdown("<div style='padding-top:12px'>", unsafe_allow_html=True)
+            if st.button("← Back", key="back_btn"):
+                _close_document()
+            st.markdown("</div>", unsafe_allow_html=True)
+        with col_h:
+            st.markdown(
+                f"<h1 style='font-size:20px; font-weight:700; letter-spacing:0.02em; margin-bottom:2px;'>"
+                f"{active_doc} — {doc_title}</h1>"
+                f"<p style='font-size:12px; color:#999; margin-top:0;'>"
+                f"{proj_project} &nbsp;&middot;&nbsp; {proj_ref} &nbsp;&middot;&nbsp; Rev {proj_rev}"
+                f"</p>",
+                unsafe_allow_html=True,
+            )
+        with col_btn:
+            st.markdown("<div style='padding-top:14px'>", unsafe_allow_html=True)
+            gen_btn = st.button("Generate PDF", type="primary", use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
     if gen_btn:
         if not st.session_state.blocks:
@@ -2640,9 +2829,15 @@ else:
             with st.spinner("Building PDF..."):
                 try:
                     doc_project = dict(PROJECT)
-                    doc_project["title"] = f"{active_doc} — {doc_title}"
+                    if active_subdoc is not None and active_subdoc < len(subdocs):
+                        _sd_lbl  = f"{active_doc}.{active_subdoc + 1}"
+                        _sd_nm   = subdocs[active_subdoc]["name"]
+                        doc_project["title"] = f"{_sd_lbl} — {_sd_nm}"
+                        _fname = f"{proj_ref}_{_sd_lbl}.pdf".replace(" ", "_").replace("/", "-")
+                    else:
+                        doc_project["title"] = f"{active_doc} — {doc_title}"
+                        _fname = f"{proj_ref}_{active_doc}.pdf".replace(" ", "_").replace("/", "-")
                     pdf_bytes = build_and_generate_pdf(doc_project, st.session_state.blocks)
-                    _fname = f"{proj_ref}_{active_doc}.pdf".replace(" ", "_").replace("/", "-")
                     st.session_state["_pdf_preview"] = {"bytes": pdf_bytes, "fname": _fname}
                     st.rerun()
                 except Exception as exc:
@@ -3028,3 +3223,47 @@ else:
                         user        = st.session_state.get("current_user", ""),
                     )
                     st.success(f"✓ Saved **{_lib_name}** to the office library.")
+
+    # ── Organise as sub-documents — only shown in top-level doc (not in a subdoc)
+    if active_subdoc is None:
+        st.markdown("---")
+        with st.expander("⊕  Organise as sub-documents", expanded=False):
+            st.markdown(
+                "<p style='font-size:12px; color:#6E6E73; margin-bottom:10px;'>"
+                "Split this document into numbered sub-documents (e.g. A2.1, A2.2). "
+                "Each sub-document has its own block list and can be opened, edited, "
+                "and exported independently. Existing blocks are moved to the first "
+                "sub-document automatically.</p>",
+                unsafe_allow_html=True,
+            )
+            _sdo_c1, _sdo_c2 = st.columns([3, 2])
+            _sdo_first_name = _sdo_c1.text_input(
+                "Title for first sub-document",
+                placeholder="e.g. Loads, Beams, Foundations…",
+                key=f"sdo_first_{active_doc}",
+                label_visibility="collapsed",
+            )
+            _sdo_second_name = _sdo_c2.text_input(
+                "Title for second sub-document (optional)",
+                placeholder="e.g. Elements",
+                key=f"sdo_second_{active_doc}",
+                label_visibility="collapsed",
+            )
+            if st.button("Create sub-documents", key=f"sdo_create_{active_doc}",
+                         type="primary", use_container_width=True):
+                if not _sdo_first_name.strip():
+                    st.warning("Please enter a title for the first sub-document.")
+                else:
+                    # Flush current blocks to doc before reorganising
+                    _doc_ref = st.session_state.documents[active_doc]
+                    _doc_ref["blocks"] = list(st.session_state.blocks)
+                    st.session_state.blocks = []
+                    # Create first subdoc (adopts existing blocks) — inline to batch rerun
+                    _existing = list(_doc_ref.get("blocks", []))
+                    _sd1 = {"name": _sdo_first_name.strip(), "blocks": _existing}
+                    _doc_ref["blocks"] = []
+                    _doc_ref.setdefault("subdocs", []).append(_sd1)
+                    # Optionally create second subdoc immediately
+                    if _sdo_second_name.strip():
+                        _doc_ref["subdocs"].append({"name": _sdo_second_name.strip(), "blocks": []})
+                    st.rerun()
