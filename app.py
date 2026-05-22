@@ -3422,33 +3422,34 @@ else:
             )
 
         else:
-            # ── Calculation block — expander, ↑/↓/Delete footer inside ───────
+            # ── Calculation block ─────────────────────────────────────────────
             label   = LABELS.get(t, t)
             summary = _block_summary(block)
             header  = f"**{label}**" + (f"  —  {summary}" if summary else "")
-            with st.expander(header, expanded=(t == "custom_calc" and not summary)):
+
+            # Action strip — OUTSIDE the expander so it's always visible
+            # (buttons inside a collapsed expander can't be clicked)
+            _ctl_c1, _ctl_c2, _ctl_c3, _ = st.columns([1, 1, 1, 14])
+            with _ctl_c1:
+                if i > 0:
+                    if st.button("↑", key=f"up_{block['id']}", help="Move up"):
+                        _lst = st.session_state.blocks
+                        _lst[i], _lst[i - 1] = _lst[i - 1], _lst[i]
+                        st.rerun()
+            with _ctl_c2:
+                if i < _n_blks - 1:
+                    if st.button("↓", key=f"dn_{block['id']}", help="Move down"):
+                        _lst = st.session_state.blocks
+                        _lst[i], _lst[i + 1] = _lst[i + 1], _lst[i]
+                        st.rerun()
+            with _ctl_c3:
+                if st.button("✕", key=f"del_{block['id']}", help="Delete block"):
+                    to_delete.add(block["id"])
+
+            # Expander holds only the editor content — no action buttons inside
+            _auto_open = t in ("custom_calc", "python_calc") and not summary
+            with st.expander(header, expanded=_auto_open):
                 EDITORS[t](block)
-                st.markdown(
-                    "<div style='margin-top:8px; padding-top:6px; "
-                    "border-top:1px solid #f0f0f0;'></div>",
-                    unsafe_allow_html=True,
-                )
-                _fc1, _fc2, _fc3, _ = st.columns([1, 1, 1, 10])
-                with _fc1:
-                    if i > 0:
-                        if st.button("↑", key=f"up_{block['id']}", help="Move up"):
-                            _lst = st.session_state.blocks
-                            _lst[i], _lst[i - 1] = _lst[i - 1], _lst[i]
-                            st.rerun()
-                with _fc2:
-                    if i < _n_blks - 1:
-                        if st.button("↓", key=f"dn_{block['id']}", help="Move down"):
-                            _lst = st.session_state.blocks
-                            _lst[i], _lst[i + 1] = _lst[i + 1], _lst[i]
-                            st.rerun()
-                with _fc3:
-                    if st.button("Delete", key=f"del_{block['id']}"):
-                        to_delete.add(block["id"])
 
     if to_delete:
         st.session_state.blocks = [b for b in st.session_state.blocks
