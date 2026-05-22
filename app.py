@@ -2438,50 +2438,125 @@ else:
 
     to_delete = set()
 
+    _INLINE_TYPES = {"heading", "text", "note", "figure", "pagebreak"}
+
     for i, block in enumerate(st.session_state.blocks):
-        t       = block["type"]
-        label   = LABELS.get(t, t)
-        summary = _block_summary(block)
-        header  = f"**{label}**" + (f"  —  {summary}" if summary else "")
+        t = block["type"]
 
-        with st.expander(header, expanded=(t == "custom_calc" and not summary)):
-            if t == "pagebreak":
-                st.caption("A page break will be inserted here.")
-            elif t in EDITORS:
+        if t in _INLINE_TYPES:
+            # ── Inline block — always visible, no click required ──────────────
+            _bc, _dc = st.columns([16, 1])
+            with _bc:
+                if t == "heading":
+                    st.markdown(
+                        "<span style='font-size:10px; color:#AEAEB2; text-transform:uppercase; "
+                        "letter-spacing:0.12em; font-weight:600;'>Heading</span>",
+                        unsafe_allow_html=True,
+                    )
+                    block["text"] = st.text_input(
+                        "", block.get("text", ""),
+                        key=f"il_h_{block['id']}",
+                        placeholder="Section heading…",
+                        label_visibility="collapsed",
+                    )
+
+                elif t == "text":
+                    _tv = block.get("text", "")
+                    block["text"] = st.text_area(
+                        "", _tv,
+                        key=f"il_t_{block['id']}",
+                        placeholder="Paragraph text…",
+                        label_visibility="collapsed",
+                        height=max(80, min(400, _tv.count("\n") * 22 + 80)),
+                    )
+
+                elif t == "note":
+                    st.markdown(
+                        "<div style='background:#FFF8F6; border-left:3px solid #E74825; "
+                        "padding:4px 10px 2px; margin-bottom:2px;'>"
+                        "<span style='font-size:10px; color:#E74825; font-weight:700; "
+                        "letter-spacing:0.08em;'>NOTE / PLACEHOLDER</span></div>",
+                        unsafe_allow_html=True,
+                    )
+                    _nv = block.get("text", "")
+                    block["text"] = st.text_area(
+                        "", _nv,
+                        key=f"il_n_{block['id']}",
+                        placeholder="Note text…",
+                        label_visibility="collapsed",
+                        height=max(80, min(300, _nv.count("\n") * 20 + 80)),
+                    )
+
+                elif t == "figure":
+                    EDITORS["figure"](block)
+
+                elif t == "pagebreak":
+                    st.markdown(
+                        "<p style='color:#AEAEB2; font-size:11px; text-align:center; "
+                        "border-top:1px dashed #ddd; border-bottom:1px dashed #ddd; "
+                        "padding:4px 0; margin:4px 0; letter-spacing:0.1em;'>"
+                        "PAGE BREAK</p>",
+                        unsafe_allow_html=True,
+                    )
+
+            with _dc:
+                st.markdown("<div style='padding-top:24px;'>", unsafe_allow_html=True)
+                if st.button("✕", key=f"del_{block['id']}", help="Delete"):
+                    to_delete.add(block["id"])
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown(
+                "<div style='border-bottom:1px solid #f0f0f0; margin:4px 0 10px;'></div>",
+                unsafe_allow_html=True,
+            )
+
+        else:
+            # ── Calculation block — expander ──────────────────────────────────
+            label   = LABELS.get(t, t)
+            summary = _block_summary(block)
+            header  = f"**{label}**" + (f"  —  {summary}" if summary else "")
+            with st.expander(header, expanded=(t == "custom_calc" and not summary)):
                 EDITORS[t](block)
-
-            st.markdown("")
-            _del_col, _ = st.columns([1, 7])
-            if _del_col.button("Delete", key=f"del_{block['id']}"):
-                to_delete.add(block["id"])
+                st.markdown("")
+                _del_col, _ = st.columns([1, 7])
+                if _del_col.button("Delete", key=f"del_{block['id']}"):
+                    to_delete.add(block["id"])
 
     if to_delete:
         st.session_state.blocks = [b for b in st.session_state.blocks
                                     if b["id"] not in to_delete]
         st.rerun()
 
+    # ── Add block ─────────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown(
         "<p style='font-size:11px; letter-spacing:0.08em; text-transform:uppercase; "
-        "color:#999; margin-bottom:8px;'>Add block</p>",
+        "color:#999; margin:0 0 8px;'>Add block</p>",
         unsafe_allow_html=True,
     )
 
-    menu_keys = [k for k in BLOCK_MENU]
-    add_col1, add_col2 = st.columns([4, 1])
-
-    selected = add_col1.selectbox(
-        "Block type", menu_keys,
-        format_func=lambda k: k,
-        label_visibility="collapsed",
-        key="add_select",
-    )
-    add_pressed = add_col2.button("Add", use_container_width=True, key="add_btn")
-
-    if add_pressed:
-        btype = BLOCK_MENU.get(selected)
-        if btype is not None:
-            st.session_state.blocks.append(_default_block(btype))
+    # Quick-add row for the most common types
+    _qa_labels = ["+ Heading", "+ Paragraph", "+ Note", "+ Figure", "+ Page break"]
+    _qa_types  = ["heading",   "text",        "note",  "figure",   "pagebreak"]
+    _qa_cols   = st.columns(len(_qa_labels))
+    for _qc, _ql, _qt in zip(_qa_cols, _qa_labels, _qa_types):
+        if _qc.button(_ql, key=f"qa_{_qt}", use_container_width=True):
+            st.session_state.blocks.append(_default_block(_qt))
             st.rerun()
-        else:
-            st.warning("Please select a block type (not a separator).")
+
+    # Full dropdown for calculation blocks
+    with st.expander("+ Calculation block"):
+        _calc_keys = [k for k in BLOCK_MENU
+                      if BLOCK_MENU[k] not in (None,) + tuple(_qa_types)]
+        _calc_cols = st.columns([4, 1])
+        _calc_sel  = _calc_cols[0].selectbox(
+            "Calculation type", _calc_keys,
+            format_func=lambda k: k,
+            label_visibility="collapsed",
+            key="add_calc_select",
+        )
+        if _calc_cols[1].button("Add", use_container_width=True, key="add_calc_btn"):
+            btype = BLOCK_MENU.get(_calc_sel)
+            if btype is not None:
+                st.session_state.blocks.append(_default_block(btype))
+                st.rerun()
