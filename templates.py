@@ -144,7 +144,7 @@ A1 = [
     _n("[Udfyldes: Angiv konsekvensklasse (CC1 / CC2 / CC3) og konstruktionsklasse (KK1 / KK2 / "
        "KK3 / KK4) med begrundelse iht. DS/INF 1990:2021 tabel 2.\n"
        "Dokumenter at projektet opfylder ID-kriterierne (stoerste spaen, hoejde, etager).\n"
-       "Eksempel: CC2 — stoerste spaen 9 m < 16 m (ID1), max. 2 etager < 5 (ID1). KK2."]"),
+       "Eksempel: CC2 — stoerste spaen 9 m < 16 m (ID1), max. 2 etager < 5 (ID1). KK2.]"),
 
     _h("A1.2.3 Sikkerhed"),
     _t("Kontrolklasse: Alle bygningsdele henfoeres til normal kontrolklasse.\n"
@@ -230,7 +230,7 @@ A1 = [
        "  Periferi:  Ftie,per = li x 7,5 kN/m x faktor  (> 8 kN)\n"
        "  Interne:   Ftie = 15 kN/m x (l1+l2)/2 x faktor  (> 8 kN)\n"
        "  Vandrette: 15 x faktor = [vaerdi] kN/m i vaegtop\n\n"
-       "Dokumentation udfoeres i A2.1 Statiske beregninger bygvaerk."]"),
+       "Dokumentation udfoeres i A2.1 Statiske beregninger bygvaerk.]"),
 
     _h("A1.4.5 Levetid"),
     _t("Bygvaerket henfores til kategori 4 jf. DS/EN 1990 tabel 2.1 med forventet levetid "
@@ -323,7 +323,7 @@ A1 = [
        "Terraenkategori: [0 / I / II / III / IV] — se A1.3.1\n"
        "Bygningshoejde:  h = [?] m\n\n"
        "Beregn: vm, Iv, qb, qp og de relevante formfaktorer Cpe,10 for facader og tag.\n"
-       "Angiv lastpaavirkning w = Cpe,10 x qp for de styrende zoner."]"),
+       "Angiv lastpaavirkning w = Cpe,10 x qp for de styrende zoner.]"),
 
     _h("A1.6.6 Snelast"),
     _n("[Udfyldes: s = 1,0 kN/m² (hele Danmark, 50-aarsperiode, DS/EN 1991-1-3 DK NA).\n\n"
@@ -332,7 +332,7 @@ A1 = [
        "Topografisk faktor: Ctop = 1,0\n"
        "Eksponeringsfaktor: Ce = 1,0\n"
        "Formfaktorer: mu_1 = 0,8 (for alpha <= 30°)\n\n"
-       "Undersog tilfaelde (i), (ii) og (iii) jf. DS/EN 1991-1-3 figur 5.3."]"),
+       "Undersog tilfaelde (i), (ii) og (iii) jf. DS/EN 1991-1-3 figur 5.3.]"),
 
     _h("A1.6.7 Geometriske imperfektioner"),
     _t(_IMPERFECTIONS),
