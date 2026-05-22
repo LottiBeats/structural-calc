@@ -99,6 +99,26 @@ BLOCK_MENU = {
     "Page break": "pagebreak",
 }
 
+# ── Danish structural documentation classification (DS/EN 1990 DK NA) ──────
+DOC_DEFS = {
+    "A1": "Projektgrundlag",
+    "A2": "Statiske beregninger",
+    "A3": "Konstruktionstegninger og modeller",
+    "A4": "Konstruktionsaendringer",
+    "B1": "Statisk projekteringsrapport",
+    "B2": "Statisk kontrolrapport",
+    "B3": "Statisk tilsynsrapport",
+}
+DOC_GROUPS = [
+    ("Konstruktionsdokumentation", ["A1", "A2", "A3", "A4"]),
+    ("Projektdokumentation",       ["B1", "B2", "B3"]),
+]
+
+def _empty_documents():
+    return {doc_id: {"title": title, "blocks": []}
+            for doc_id, title in DOC_DEFS.items()}
+
+
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 # PAGE CONFIG & STYLING
 # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -179,6 +199,10 @@ if "blocks" not in st.session_state:
     st.session_state.blocks = []
 if "_id" not in st.session_state:
     st.session_state._id = 0
+if "active_doc" not in st.session_state:
+    st.session_state.active_doc = None
+if "documents" not in st.session_state:
+    st.session_state.documents = _empty_documents()
 
 # ── project-save / load helpers ───────────────────────────────────────────────
 
@@ -191,12 +215,24 @@ _PROJ_KEYS = [
 ]
 
 def _project_to_json() -> bytes:
-    """Serialise current blocks + project metadata to UTF-8 JSON bytes."""
+    """Serialise all documents + project metadata to UTF-8 JSON (v3)."""
     proj_snap = {k: st.session_state.get(k, "") for k in _PROJ_KEYS}
+    # Snapshot documents — merge live blocks for the active doc
+    active = st.session_state.get("active_doc")
+    docs_snap = {}
+    for doc_id, doc in st.session_state.get("documents", {}).items():
+        if doc_id == active:
+            docs_snap[doc_id] = {"title": doc["title"],
+                                 "blocks": list(st.session_state.blocks)}
+        else:
+            docs_snap[doc_id] = {"title": doc["title"],
+                                 "blocks": list(doc["blocks"])}
     payload = {
-        "version":  2,
-        "project":  proj_snap,
-        "blocks":   st.session_state.blocks,
+        "version":   3,
+        "project":   proj_snap,
+        "documents": docs_snap,
+        # Legacy key so v2 readers can still find something
+        "blocks":    list(st.session_state.blocks),
     }
     return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
@@ -206,15 +242,32 @@ def _apply_loaded_project(data: dict):
     for k in _PROJ_KEYS:
         if k in proj:
             st.session_state[k] = proj[k]
-    raw_blocks = data.get("blocks", [])
-    # Re-assign unique IDs to avoid collisions with current session
-    new_blocks = []
-    for b in raw_blocks:
-        b = dict(b)
-        st.session_state._id += 1
-        b["id"] = st.session_state._id
-        new_blocks.append(b)
-    st.session_state.blocks = new_blocks
+
+    def _reassign_ids(blocks):
+        out = []
+        for b in blocks:
+            b = dict(b)
+            st.session_state._id += 1
+            b["id"] = st.session_state._id
+            out.append(b)
+        return out
+
+    if "documents" in data and isinstance(data["documents"], dict):
+        # v3 format — load all documents
+        docs = _empty_documents()
+        for doc_id in DOC_DEFS:
+            if doc_id in data["documents"]:
+                docs[doc_id]["blocks"] = _reassign_ids(
+                    data["documents"][doc_id].get("blocks", []))
+        st.session_state.documents = docs
+    else:
+        # v2 legacy — put blocks into A2 (most common use case)
+        docs = _empty_documents()
+        docs["A2"]["blocks"] = _reassign_ids(data.get("blocks", []))
+        st.session_state.documents = docs
+
+    st.session_state.blocks = []
+    st.session_state.active_doc = None
 
 # Handle a pending load triggered in a previous run
 if "_pending_load" in st.session_state:
@@ -225,6 +278,24 @@ if "_pending_load" in st.session_state:
 def _new_id():
     st.session_state._id += 1
     return st.session_state._id
+
+def _open_document(doc_id):
+    """Switch to editing the given document (save current blocks first)."""
+    current = st.session_state.get("active_doc")
+    if current:
+        st.session_state.documents[current]["blocks"] = list(st.session_state.blocks)
+    st.session_state.blocks = list(st.session_state.documents[doc_id]["blocks"])
+    st.session_state.active_doc = doc_id
+    st.rerun()
+
+def _close_document():
+    """Return to the dashboard, saving current blocks into the active document."""
+    active = st.session_state.get("active_doc")
+    if active:
+        st.session_state.documents[active]["blocks"] = list(st.session_state.blocks)
+    st.session_state.active_doc = None
+    st.session_state.blocks = []
+    st.rerun()
 
 def _default_block(btype):
     base = {"type": btype, "id": _new_id()}
@@ -1999,129 +2070,175 @@ with st.sidebar:
         "email":          proj_email,
     }
 
-    st.markdown("---")
-    out_name = st.text_input("PDF filename", "report.pdf", key="out_name")
-    if not out_name.endswith(".pdf"):
-        out_name += ".pdf"
+    # Active document indicator
+    if st.session_state.get("active_doc"):
+        _ad = st.session_state.active_doc
+        st.markdown("---")
+        st.markdown(
+            f"<div style='background:#F5F5F5; border-left:3px solid #E74825; "
+            f"padding:8px 10px; font-size:11px; color:#1C1C1E;'>"
+            f"<b>Editing:</b> {_ad} — {DOC_DEFS.get(_ad, '')}</div>",
+            unsafe_allow_html=True,
+        )
 
-# â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-# MAIN — HEADER + GENERATE BUTTON
-# â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# ─────────────────────────────────────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────────────────────────────────────
 
-col_h, col_btn = st.columns([4, 1])
-with col_h:
+if st.session_state.active_doc is None:
+    # ── DASHBOARD ────────────────────────────────────────────────────────────
     st.markdown(
-        f"<h1 style='font-size:22px; font-weight:700; letter-spacing:0.02em; margin-bottom:2px;'>"
-        f"Report Builder</h1>"
-        f"<p style='font-size:12px; color:#999; margin-top:0;'>"
-        f"{proj_project} &nbsp;·&nbsp; {proj_ref} &nbsp;·&nbsp; Rev {proj_rev}"
-        f"</p>",
+        f"<h1 style='font-size:26px; font-weight:800; letter-spacing:0.01em; margin-bottom:4px;'>"
+        f"{proj_project}</h1>"
+        f"<p style='font-size:13px; color:#6E6E73; margin-top:0; margin-bottom:32px;'>"
+        f"{proj_ref} &nbsp;&middot;&nbsp; Rev&nbsp;{proj_rev} &nbsp;&middot;&nbsp; {proj_date}</p>",
         unsafe_allow_html=True,
     )
-with col_btn:
-    st.markdown("<div style='padding-top:14px'>", unsafe_allow_html=True)
-    gen_btn = st.button("Generate PDF", type="primary", use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
-if gen_btn:
-    if not st.session_state.blocks:
-        st.warning("Add at least one block before generating.")
-    else:
-        with st.spinner("Building PDF..."):
-            try:
-                pdf_bytes = build_and_generate_pdf(PROJECT, st.session_state.blocks)
-                st.download_button(
-                    label    = f"Download  {out_name}",
-                    data     = pdf_bytes,
-                    file_name= out_name,
-                    mime     = "application/pdf",
-                    use_container_width=True,
+    for group_name, doc_ids in DOC_GROUPS:
+        st.markdown(
+            f"<p style='font-size:10px; letter-spacing:0.12em; text-transform:uppercase; "
+            f"color:#6E6E73; font-weight:700; margin:0 0 10px;'>{group_name}</p>",
+            unsafe_allow_html=True,
+        )
+        cols = st.columns(len(doc_ids))
+        for col, doc_id in zip(cols, doc_ids):
+            with col:
+                doc = st.session_state.documents[doc_id]
+                n_blocks = len(doc["blocks"])
+                accent = "#E74825" if doc_id.startswith("A") else "#032E38"
+                dot    = "●" if n_blocks > 0 else "○"
+                st.markdown(
+                    f"<div style='border:1px solid #e8e8e8; border-top:3px solid {accent}; "
+                    f"padding:16px 14px 10px; margin-bottom:4px; min-height:90px;'>"
+                    f"<div style='font-size:24px; font-weight:800; color:#1C1C1E; "
+                    f"line-height:1; margin-bottom:6px;'>{doc_id}</div>"
+                    f"<div style='font-size:11px; color:#6E6E73; line-height:1.4; "
+                    f"margin-bottom:10px;'>{doc['title']}</div>"
+                    f"<div style='font-size:10px; color:#AEAEB2;'>"
+                    f"{dot}&nbsp;{n_blocks} block{'s' if n_blocks != 1 else ''}"
+                    f"</div></div>",
+                    unsafe_allow_html=True,
                 )
-            except Exception as exc:
-                import traceback
-                st.error(f"PDF generation failed: {exc}")
-                st.code(traceback.format_exc())
+                if st.button("Open →", key=f"open_{doc_id}", use_container_width=True):
+                    _open_document(doc_id)
+        st.markdown("<div style='margin-bottom:28px'></div>", unsafe_allow_html=True)
 
-st.markdown("---")
+else:
+    # ── EDITOR ───────────────────────────────────────────────────────────────
+    active_doc = st.session_state.active_doc
+    doc_title  = DOC_DEFS.get(active_doc, "")
 
-# â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-# MAIN — BLOCK LIST
-# â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    col_back, col_h, col_btn = st.columns([1, 4, 1])
+    with col_back:
+        st.markdown("<div style='padding-top:12px'>", unsafe_allow_html=True)
+        if st.button("← Back", key="back_btn"):
+            _close_document()
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col_h:
+        st.markdown(
+            f"<h1 style='font-size:20px; font-weight:700; letter-spacing:0.02em; margin-bottom:2px;'>"
+            f"{active_doc} — {doc_title}</h1>"
+            f"<p style='font-size:12px; color:#999; margin-top:0;'>"
+            f"{proj_project} &nbsp;&middot;&nbsp; {proj_ref} &nbsp;&middot;&nbsp; Rev {proj_rev}"
+            f"</p>",
+            unsafe_allow_html=True,
+        )
+    with col_btn:
+        st.markdown("<div style='padding-top:14px'>", unsafe_allow_html=True)
+        gen_btn = st.button("Generate PDF", type="primary", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-if not st.session_state.blocks:
+    if gen_btn:
+        if not st.session_state.blocks:
+            st.warning("Add at least one block before generating.")
+        else:
+            with st.spinner("Building PDF..."):
+                try:
+                    doc_project = dict(PROJECT)
+                    doc_project["title"] = f"{active_doc} — {doc_title}"
+                    pdf_bytes = build_and_generate_pdf(doc_project, st.session_state.blocks)
+                    _fname = f"{proj_ref}_{active_doc}.pdf".replace(" ", "_").replace("/", "-")
+                    st.download_button(
+                        label=f"Download  {_fname}",
+                        data=pdf_bytes,
+                        file_name=_fname,
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
+                except Exception as exc:
+                    import traceback
+                    st.error(f"PDF generation failed: {exc}")
+                    st.code(traceback.format_exc())
+
+    st.markdown("---")
+
+    if not st.session_state.blocks:
+        st.markdown(
+            "<p style='color:#bbb; font-size:13px; padding:24px 0;'>"
+            "No blocks yet — use Add block below to start building your report."
+            "</p>",
+            unsafe_allow_html=True,
+        )
+
+    def _move_block(i, direction):
+        lst = st.session_state.blocks
+        j = i + direction
+        if 0 <= j < len(lst):
+            lst[i], lst[j] = lst[j], lst[i]
+
+    to_delete = set()
+
+    for i, block in enumerate(st.session_state.blocks):
+        t       = block["type"]
+        label   = LABELS.get(t, t)
+        summary = _block_summary(block)
+        header  = f"**{label}**" + (f"  —  {summary}" if summary else "")
+
+        with st.expander(header, expanded=(t == "custom_calc" and not summary)):
+            if t == "pagebreak":
+                st.caption("A page break will be inserted here.")
+            elif t in EDITORS:
+                EDITORS[t](block)
+
+            st.markdown("")
+            bc1, bc2, bc3, _ = st.columns([1, 1, 1, 5])
+            bc1.button("Up",   key=f"up_{block['id']}", help="Move up",
+                       on_click=_move_block, args=(i, -1),
+                       disabled=(i == 0))
+            bc2.button("Down", key=f"dn_{block['id']}", help="Move down",
+                       on_click=_move_block, args=(i, 1),
+                       disabled=(i == len(st.session_state.blocks) - 1))
+            if bc3.button("Delete", key=f"del_{block['id']}"):
+                to_delete.add(block["id"])
+
+    if to_delete:
+        st.session_state.blocks = [b for b in st.session_state.blocks
+                                    if b["id"] not in to_delete]
+        st.rerun()
+
+    st.markdown("---")
     st.markdown(
-        "<p style='color:#bbb; font-size:13px; padding:24px 0;'>"
-        "No blocks yet — use Add block below to start building your report."
-        "</p>",
+        "<p style='font-size:11px; letter-spacing:0.08em; text-transform:uppercase; "
+        "color:#999; margin-bottom:8px;'>Add block</p>",
         unsafe_allow_html=True,
     )
 
-def _move_block(i, direction):
-    lst = st.session_state.blocks
-    j = i + direction
-    if 0 <= j < len(lst):
-        lst[i], lst[j] = lst[j], lst[i]
+    menu_keys = [k for k in BLOCK_MENU]
+    add_col1, add_col2 = st.columns([4, 1])
 
-to_delete = set()
+    selected = add_col1.selectbox(
+        "Block type", menu_keys,
+        format_func=lambda k: k,
+        label_visibility="collapsed",
+        key="add_select",
+    )
+    add_pressed = add_col2.button("Add", use_container_width=True, key="add_btn")
 
-for i, block in enumerate(st.session_state.blocks):
-    t       = block["type"]
-    label   = LABELS.get(t, t)
-    summary = _block_summary(block)
-    header  = f"**{label}**" + (f"  —  {summary}" if summary else "")
-
-    with st.expander(header, expanded=(t == "custom_calc" and not summary)):
-        if t == "pagebreak":
-            st.caption("A page break will be inserted here.")
-        elif t in EDITORS:
-            EDITORS[t](block)
-
-        st.markdown("")
-        bc1, bc2, bc3, _ = st.columns([1, 1, 1, 5])
-        bc1.button("Up",   key=f"up_{block['id']}", help="Move up",
-                   on_click=_move_block, args=(i, -1),
-                   disabled=(i == 0))
-        bc2.button("Down", key=f"dn_{block['id']}", help="Move down",
-                   on_click=_move_block, args=(i, 1),
-                   disabled=(i == len(st.session_state.blocks) - 1))
-        if bc3.button("Delete", key=f"del_{block['id']}"):
-            to_delete.add(block["id"])
-
-if to_delete:
-    st.session_state.blocks = [b for b in st.session_state.blocks
-                                if b["id"] not in to_delete]
-    st.rerun()
-
-# â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-# MAIN — ADD BLOCK
-# â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-
-st.markdown("---")
-st.markdown(
-    "<p style='font-size:11px; letter-spacing:0.08em; text-transform:uppercase; "
-    "color:#999; margin-bottom:8px;'>Add block</p>",
-    unsafe_allow_html=True,
-)
-
-menu_keys   = [k for k in BLOCK_MENU]
-add_col1, add_col2 = st.columns([4, 1])
-
-selected = add_col1.selectbox(
-    "Block type", menu_keys,
-    format_func=lambda k: k,
-    label_visibility="collapsed",
-    key="add_select",
-)
-add_pressed = add_col2.button("Add", use_container_width=True, key="add_btn")
-
-if add_pressed:
-    btype = BLOCK_MENU.get(selected)
-    if btype is not None:
-        st.session_state.blocks.append(_default_block(btype))
-        st.rerun()
-    else:
-        st.warning("Please select a block type (not a separator).")
-
-
-
-
+    if add_pressed:
+        btype = BLOCK_MENU.get(selected)
+        if btype is not None:
+            st.session_state.blocks.append(_default_block(btype))
+            st.rerun()
+        else:
+            st.warning("Please select a block type (not a separator).")
