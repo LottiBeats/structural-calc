@@ -2953,7 +2953,7 @@ else:
     _lib_templates = _db.load_all_templates()
 
     with st.expander(
-        f"📚  From office library  ({len(_lib_templates)} saved)",
+        f"Office library  ({len(_lib_templates)} saved)",
         expanded=False,
     ):
         if not _lib_templates:
@@ -2993,7 +2993,7 @@ else:
 
     # ── Save current document to office library ───────────────────────────────
     st.markdown("---")
-    with st.expander("💾  Save current blocks to office library", expanded=False):
+    with st.expander("Save current blocks to office library", expanded=False):
         if not st.session_state.blocks:
             st.caption("Add some blocks first, then save them here.")
         else:
@@ -3016,7 +3016,7 @@ else:
                 key="lib_save_desc",
                 label_visibility="collapsed",
             )
-            if st.button("💾  Save to office library", use_container_width=True,
+            if st.button("Save to office library", use_container_width=True,
                          key="lib_save_btn", type="primary"):
                 if not _lib_name.strip():
                     st.warning("Please enter a name for the template.")
