@@ -289,6 +289,26 @@ def _apply_loaded_project(data: dict):
                     docs[did]["subdocs"] = raw[did].get("subdocs", [])
         return docs
 
+    def _advance_id_past_subdocs(projects):
+        """Ensure _id is higher than any block id inside subdocs (which skip _reassign_ids).
+
+        Subdoc blocks keep their original integer ids from the database.  If _id
+        is not advanced past them, _new_id() can return an id that's already in
+        use → StreamlitDuplicateElementKey when the same key suffix is shared.
+        """
+        max_seen = st.session_state._id
+        for proj in projects:
+            for did, doc in proj.get("documents", {}).items():
+                for sd in doc.get("subdocs", []):
+                    for b in sd.get("blocks", []):
+                        try:
+                            bid = int(b.get("id", 0))
+                            if bid > max_seen:
+                                max_seen = bid
+                        except (TypeError, ValueError):
+                            pass
+        st.session_state._id = max_seen
+
     v = data.get("version", 1)
     if v == 4:
         projects = data.get("projects", [])
@@ -302,6 +322,7 @@ def _apply_loaded_project(data: dict):
                 }
                 for did in DOC_DEFS
             }
+        _advance_id_past_subdocs(projects)
         st.session_state.projects = projects
     else:
         # v3 / v2 / v1 — wrap as a single project
@@ -316,6 +337,7 @@ def _apply_loaded_project(data: dict):
             "created":  str(date.today()),
         }
         st.session_state.projects = [proj]
+        _advance_id_past_subdocs([proj])
 
     st.session_state.active_project_id = None
     st.session_state.active_doc = None
@@ -450,6 +472,25 @@ def _open_project(pid):
             docs[did]["blocks"] = list(proj["documents"][did].get("blocks", []))
             docs[did]["subdocs"] = list(proj["documents"][did].get("subdocs", []))
     st.session_state.documents = docs
+
+    # Advance _id counter past every block id already in the project so that
+    # _new_id() never returns an id that's already in use.  Block ids are
+    # integers when created by _new_id() / _reassign_ids but may be UUID hex
+    # strings when inserted from the library — only integer ids can conflict.
+    _max_id = st.session_state._id
+    for _did, _doc in docs.items():
+        for _blk in _doc.get("blocks", []):
+            try:
+                _max_id = max(_max_id, int(_blk["id"]))
+            except (TypeError, ValueError, KeyError):
+                pass
+        for _sd in _doc.get("subdocs", []):
+            for _blk in _sd.get("blocks", []):
+                try:
+                    _max_id = max(_max_id, int(_blk["id"]))
+                except (TypeError, ValueError, KeyError):
+                    pass
+    st.session_state._id = _max_id
     st.session_state.blocks = []
     st.session_state.active_doc = None
     st.session_state.active_subdoc = None
