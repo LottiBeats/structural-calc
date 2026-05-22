@@ -104,6 +104,7 @@ BLOCK_MENU = {
     "Masonry wall Ritter  (EN 1996)": "masonry_ritter",
     "— Content —": None,
     "Custom calculation": "custom_calc",
+    "Python script": "python_calc",
     "Section heading": "heading",
     "Paragraph text": "text",
     "Note / warning": "note",
@@ -112,6 +113,28 @@ BLOCK_MENU = {
     "— Layout —": None,
     "Page break": "pagebreak",
 }
+
+# Starter template shown in new Python script blocks
+_PYTHON_CALC_STARTER = """\
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Pre-imported: np, pd, plt, scipy
+# print() output and matplotlib figures are captured automatically.
+
+x = np.linspace(0, 10, 300)
+y = np.sin(x) * np.exp(-0.1 * x)
+
+fig, ax = plt.subplots(figsize=(7, 3))
+ax.plot(x, y, color="#032E38")
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_title("Example — replace with your calculation")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+
+print(f"Peak: {y.max():.4f}  at  x = {x[y.argmax()]:.2f}")
+"""
 
 # ── Danish structural documentation classification (DS/EN 1990 DK NA) ──────
 DOC_DEFS = {
@@ -598,6 +621,14 @@ def _default_block(btype):
         base["data"] = {
             "title": "Custom Calculation",
             "items": [],
+        }
+    elif btype == "python_calc":
+        base["data"] = {
+            "title":        "Python Script",
+            "code":         _PYTHON_CALC_STARTER,
+            "_output_text": "",
+            "_figs_b64":    [],   # list of base64-encoded PNG strings from last run
+            "_error":       "",
         }
     elif btype in ("heading","text","note"):
         base["text"] = ""
@@ -1265,6 +1296,9 @@ def block_to_report(block: dict, fem_results: dict = None) -> list:
 
     elif t == "custom_calc":
         return custom_calc_to_blocks(block.get("data", {}))
+
+    elif t == "python_calc":
+        return python_calc_to_blocks(block.get("data", {}))
 
     return []
 
@@ -2362,6 +2396,137 @@ def edit_fem_beam(block):
         st.caption("Add at least 2 supports and 1 load to run the analysis.")
 
 
+def edit_python_calc(block):
+    """Full-Python execution block.
+
+    The user writes arbitrary Python; it runs in an isolated namespace with
+    numpy, pandas, matplotlib and scipy pre-imported.  print() output and all
+    matplotlib figures created during the run are captured and displayed inline.
+    Results (text + figures as base64 PNG) are stored in block["data"] so the
+    PDF generator can embed any figures that were produced.
+    """
+    import io, contextlib, traceback as _tb, base64 as _b64
+
+    d    = block["data"]
+    _bid = block["id"]
+
+    d["title"] = st.text_input(
+        "Section title", d.get("title", "Python Script"),
+        key=_uid(block, "title"),
+    )
+
+    st.caption(
+        "Pre-imported: **`np`** (numpy)  ·  **`pd`** (pandas)  ·  "
+        "**`plt`** (matplotlib.pyplot)  ·  **`scipy`**  ·  "
+        "`print()` output and all `plt.figure()` plots are captured automatically."
+    )
+
+    code = st.text_area(
+        "Code",
+        d.get("code", _PYTHON_CALC_STARTER),
+        height=340,
+        key=_uid(block, "code"),
+        label_visibility="collapsed",
+    )
+    d["code"] = code
+
+    _btn_run, _btn_clr, _ = st.columns([1, 1, 5])
+    _run_clicked = _btn_run.button(
+        "▶  Run", key=_uid(block, "run"),
+        type="primary", use_container_width=True,
+    )
+    if _btn_clr.button("✕  Clear", key=_uid(block, "clr"), use_container_width=True):
+        d["_output_text"] = ""
+        d["_figs_b64"]    = []
+        d["_error"]       = ""
+        st.rerun()
+
+    if _run_clicked:
+        import matplotlib as _mpl
+        _mpl.use("Agg")
+        import matplotlib.pyplot as _plt
+        _plt.close("all")
+
+        _stdout_buf = io.StringIO()
+
+        # Build execution namespace with common science/engineering libs
+        _ns: dict = {}
+        for _alias, _mod_name in [
+            ("np",      "numpy"),
+            ("numpy",   "numpy"),
+            ("pd",      "pandas"),
+            ("pandas",  "pandas"),
+            ("scipy",   "scipy"),
+        ]:
+            try:
+                import importlib as _il
+                _ns[_alias] = _il.import_module(_mod_name)
+            except ImportError:
+                pass
+        _ns["plt"]        = _plt
+        _ns["matplotlib"] = _mpl
+
+        _err = ""
+        try:
+            with contextlib.redirect_stdout(_stdout_buf):
+                exec(compile(code, "<python_calc>", "exec"), _ns)
+        except Exception:
+            _err = _tb.format_exc()
+
+        d["_output_text"] = _stdout_buf.getvalue()
+        d["_error"]       = _err
+
+        # Capture every figure created during exec as a base64 PNG
+        _figs_b64 = []
+        for _fnum in _plt.get_fignums():
+            _fig = _plt.figure(_fnum)
+            _buf = io.BytesIO()
+            _fig.savefig(_buf, format="png", dpi=150, bbox_inches="tight")
+            _buf.seek(0)
+            _figs_b64.append(_b64.b64encode(_buf.read()).decode())
+        _plt.close("all")
+        d["_figs_b64"] = _figs_b64
+
+        st.rerun()
+
+    # ── Display results from last run ─────────────────────────────────────────
+    if d.get("_output_text"):
+        st.code(d["_output_text"], language=None)
+    for _fb64 in d.get("_figs_b64", []):
+        st.image(_b64.b64decode(_fb64))
+    if d.get("_error"):
+        st.error(d["_error"])
+
+
+def python_calc_to_blocks(data: dict) -> list:
+    """Convert a python_calc block to PDF report blocks.
+
+    Includes: section heading, any matplotlib figures from the last run.
+    The raw code is intentionally omitted from the PDF to keep it clean.
+    """
+    blocks = [S(data.get("title", "Python Script"))]
+
+    for i, fb64 in enumerate(data.get("_figs_b64", [])):
+        try:
+            import base64 as _b64
+            _png_bytes = _b64.b64decode(fb64)
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as _tmp:
+                _tmp.write(_png_bytes)
+                _tmp_path = _tmp.name
+            blocks.append(FIG(_tmp_path, caption="", width_mm=170))
+        except Exception as exc:
+            blocks.append(NOTE(f"Figure {i+1} could not be embedded: {exc}"))
+
+    if data.get("_output_text", "").strip():
+        # Include printed output as a verbatim note in the PDF
+        blocks.append(T(data["_output_text"].strip()))
+
+    if not data.get("_figs_b64") and not data.get("_output_text", "").strip():
+        blocks.append(NOTE("Python script — run the block to generate output for the PDF."))
+
+    return blocks
+
+
 EDITORS = {
     "heading":            edit_heading,
     "text":               edit_text,
@@ -2376,6 +2541,7 @@ EDITORS = {
     "masonry_wall":       edit_masonry_wall,
     "masonry_ritter":     edit_masonry_ritter,
     "custom_calc":        edit_custom_calc,
+    "python_calc":        edit_python_calc,
 }
 
 ICONS = {
@@ -2393,6 +2559,7 @@ ICONS = {
     "masonry_wall":       "",
     "masonry_ritter":     "",
     "custom_calc":        "",
+    "python_calc":        "",
 }
 
 LABELS = {
@@ -2411,6 +2578,7 @@ LABELS = {
     "masonry_wall":       "Masonry wall — EN 1996",
     "masonry_ritter":     "Masonry wall Ritter — EN 1996",
     "custom_calc":        "Custom calculation",
+    "python_calc":        "Python script",
 }
 
 def _block_summary(block) -> str:
@@ -2423,7 +2591,7 @@ def _block_summary(block) -> str:
         return cap or (", ".join(hdrs[:3]) + ("…" if len(hdrs) > 3 else ""))
     if t == "figure":
         return block.get("caption","") or (block.get("path","").split("/")[-1].split("\\")[-1])[:40]
-    if t == "custom_calc":
+    if t in ("custom_calc", "python_calc"):
         return block.get("data",{}).get("title","")
     if t in ("timber_beam_column","timber_beam","steel_beam","concrete_beam","concrete_column","masonry_wall","masonry_ritter"):
         d = block.get("data",{})
